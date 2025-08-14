@@ -1,3 +1,4 @@
+
 <?php
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
@@ -32,3 +33,4 @@ try {
     if (isset($stmt) && $stmt instanceof mysqli_stmt) $stmt->close();
     if (isset($db)   && $db   instanceof mysqli)      $db->close();
 }
+/* 以上為api公版，大家寫的時候可以調整中間綠色區塊*/
