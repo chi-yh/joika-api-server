@@ -1,0 +1,17 @@
+{
+  "sqltools.connections": [
+    {
+      "mysqlOptions": {
+        "authProtocol": "default",
+        "enableSsl": "Disabled"
+      },
+      "previewLimit": 50,
+      "server": "localhost",
+      "port": 8889,
+      "driver": "MySQL",
+      "name": "joika_database",
+      "database": "mysql",
+      "username": "root"
+    }
+  ]
+}
