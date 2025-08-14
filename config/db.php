@@ -47,7 +47,7 @@ error_reporting(E_ALL);
     echo '<br>';
     echo 'MySQL 版本資訊：' . $mysqli->server_info;
 
-    $mysqli->close(); // 關閉資料庫連線
+    // $mysqli->close(); // 關閉資料庫連線
 
   } catch (mysqli_sql_exception $e) { // 如果 try 區塊裡的程式有錯，就會執行到這裡的 catch
 
