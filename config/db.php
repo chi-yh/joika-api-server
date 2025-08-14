@@ -1,4 +1,11 @@
 <?php
+// 開啟所有錯誤訊息
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+?>
+
+<?php
     require_once __DIR__ . '/constant.php';
 
     // 讓 mysqli 連線錯誤丟出例外，才會被 try/catch 捕捉
@@ -34,13 +41,13 @@
         $db_dbname,
         $db_port
     );
-    // echo '<h1 style="color: green;">連線成功。</h1>';
-    // echo "<hr>";
-    // echo '主機資訊：' . $mysqli->host_info;
-    // echo '<br>';
-    // echo 'MySQL 版本資訊：' . $mysqli->server_info;
+    echo '<h1 style="color: green;">連線成功。</h1>';
+    echo "<hr>";
+    echo '主機資訊：' . $mysqli->host_info;
+    echo '<br>';
+    echo 'MySQL 版本資訊：' . $mysqli->server_info;
 
-    // $mysqli->close(); // 關閉資料庫連線
+    $mysqli->close(); // 關閉資料庫連線
 
   } catch (mysqli_sql_exception $e) { // 如果 try 區塊裡的程式有錯，就會執行到這裡的 catch
 
