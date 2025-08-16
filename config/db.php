@@ -1,9 +1,4 @@
 <?php
-// 顯示錯誤（只建議本機）
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
 require_once __DIR__ . '/constant.php';
 
 // 讓 mysqli 連線錯誤丟出例外
@@ -26,12 +21,18 @@ function db(): mysqli
         $pass = DB_PSW_LOCAL;
         $name = DB_NAME_LOCAL;
         $port = DB_PORT_LOCAL;
+        ini_set('display_errors', 1);
+        ini_set('display_startup_errors', 1);
+        error_reporting(E_ALL);
     } else {
         $host = DB_HOST;
         $user = DB_USER;
         $pass = DB_PSW;
         $name = DB_NAME;
         $port = DB_PORT;
+        ini_set('display_errors', 0);
+        ini_set('display_startup_errors', 0);
+        error_reporting(E_ALL);
     }
 
     try {

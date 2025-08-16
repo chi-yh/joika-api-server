@@ -5,17 +5,16 @@
 
     $db = db();
 
-    // $num = isset($_GET['num']) ? (int)$_GET['num'] : 2;
-    // if ($num <= 0) $num = 2;
+    $num = isset($_GET['num']) ? (int)$_GET['num'] : 2;
+    if ($num <= 0) $num = 2;
 
-    $sql = "SELECT * FROM `notification`";
+    $sql = "SELECT * FROM `notification` LIMIT $num";
     $result = $db->query($sql);
 
     $data = $result->fetch_all(MYSQLI_ASSOC);
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
 
     $db->close();
-    $mysqli->close();
     exit();
     }
     
