@@ -13,7 +13,10 @@ try {
     $mysqli = db();
 
     // 查詢資料（建議用 prepare，這裡示範簡單 query 也可）
-    $sql = 'SELECT * FROM activity';
+    $sql = "SELECT * FROM `activity`
+            WHERE `ACTIVITY_STATUS` <> '已取消'
+            AND `ACTIVITY_STATUS` <> '已結束'
+    ";
     $result = $mysqli->query($sql);
 
     $data = $result->fetch_all(MYSQLI_ASSOC);
