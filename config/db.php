@@ -4,6 +4,9 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+// 處理跨域CORS
+header("Access-Control-Allow-Origin: *");
+
 require_once __DIR__ . '/constant.php';
 
 // 讓 mysqli 連線錯誤丟出例外
