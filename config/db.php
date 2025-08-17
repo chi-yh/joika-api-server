@@ -1,9 +1,7 @@
 <?php
-<<<<<<< HEAD
-=======
+
 // 處理跨域CORS
-header("Access-Control-Allow-Origin: *");
->>>>>>> 8db062cf4f3bc7b1c046c38f56cf2b4856f2ba90
+// header("Access-Control-Allow-Origin: *");
 require_once __DIR__ . '/constant.php';
 
 // 讓 mysqli 連線錯誤丟出例外
