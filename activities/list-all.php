@@ -1,7 +1,5 @@
 <?php
-    # GET
-    # 最新揪團
-    // 看CREATED_AT
+    # 全部的（包括已取消、...）的活動資料
 
     require_once __DIR__ . '/../config/db.php';
     if ($_SERVER["REQUEST_METHOD"] == "GET"){
@@ -11,10 +9,7 @@
     // $num = isset($_GET['num']) ? (int)$_GET['num'] : 2;
     // if ($num <= 0) $num = 2;
 
-    $sql = "SELECT * FROM `activity`
-            WHERE `ACTIVITY_STATUS` <> '已取消'
-            AND `ACTIVITY_STATUS` <> '已結束'
-            ORDER BY `CREATED_AT` DESC";
+    $sql = "SELECT * FROM `activity`";
     $result = $db->query($sql);
 
     $data = $result->fetch_all(MYSQLI_ASSOC);
