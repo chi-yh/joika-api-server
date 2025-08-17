@@ -1,13 +1,12 @@
 <?php
+    # 活動留言檢舉
+    # GET
     require_once __DIR__ . '/../../config/db.php';
     if ($_SERVER["REQUEST_METHOD"] == "GET"){
 
     $db = db();
 
-    // $num = isset($_GET['num']) ? (int)$_GET['num'] : 2;
-    // if ($num <= 0) $num = 2;
-
-    $sql = "SELECT * FROM member";
+    $sql = "SELECT * FROM `activity_comment_report`";
     $result = $db->query($sql);
 
     $data = $result->fetch_all(MYSQLI_ASSOC);
