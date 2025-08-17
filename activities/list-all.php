@@ -1,6 +1,4 @@
 <?php
-    #我要跟團
-
     # 全部的（包括已取消、...）的活動資料
 
     require_once __DIR__ . '/../config/db.php';
