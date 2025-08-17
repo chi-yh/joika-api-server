@@ -38,7 +38,7 @@
             {$postNo},
             {$reasonNo},
             '{$descriptionEscaped}',
-            0,
+            '待審核',
             NOW()
         )";
 
