@@ -1,20 +1,12 @@
 <?php
+    # 文章相關檢舉
     # GET
-    # 最新揪團
-    // 看CREATED_AT
-
-    require_once __DIR__ . '/../config/db.php';
+    require_once __DIR__ . '/../../config/db.php';
     if ($_SERVER["REQUEST_METHOD"] == "GET"){
 
     $db = db();
 
-    // $num = isset($_GET['num']) ? (int)$_GET['num'] : 2;
-    // if ($num <= 0) $num = 2;
-
-    $sql = "SELECT * FROM `activity`
-            WHERE `ACTIVITY_STATUS` <> '已取消'
-            AND `ACTIVITY_STATUS` <> '已結束'
-            ORDER BY `CREATED_AT` DESC";
+    $sql = "SELECT * FROM `post_report`";
     $result = $db->query($sql);
 
     $data = $result->fetch_all(MYSQLI_ASSOC);
