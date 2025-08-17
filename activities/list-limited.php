@@ -1,4 +1,5 @@
 <?php
+    # GET
     # 限時揪團
     // 看ACTIVITY_START_DATE，兩週内
 

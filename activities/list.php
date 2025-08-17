@@ -1,4 +1,6 @@
 <?php
+# GET
+
 // 顯示錯誤（開發時開啟，上線請關閉或寫到 log）
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
