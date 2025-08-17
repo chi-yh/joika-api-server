@@ -23,9 +23,15 @@
 
         if ($isOK) {
           // 登入成功 → 回傳 STAFF_NAME
-          echo json_encode($isOK[0]["STAFF_NAME"]);
+          echo json_encode([
+            "success" => true,
+            "staff_name" => $isOK[0]["STAFF_NAME"]
+          ]);
         } else {
-          echo json_encode(false);
+          echo json_encode([
+            "success" => false,
+            "staff_name" => null
+          ]);
         }
         
         exit();
