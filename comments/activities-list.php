@@ -1,52 +1,68 @@
 <?php
-require_once __DIR__ . '/../config/db.php'; // 載入你的 db() 函式
-
-$mysqli = db(); // 呼叫 db() 取得 mysqli 物件
-
-$stmt = $mysqli->prepare("SELECT * FROM post_commentactivity_comment");
-<?php
+// --- 基礎設定 ---
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
+header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Content-Type: application/json; charset=UTF-8");
+
 require_once __DIR__ . '/../config/db.php';
 
-$method = $_SERVER['REQUEST_METHOD'];
-
-switch ($method) {
-    case 'GET':
-        if (!isset($_GET['activity_no'])) {
-            echo json_encode(["error" => "缺少活動編號"], JSON_UNESCAPED_UNICODE);
-            exit;
-        }
-
-        $activityNo = intval($_GET['activity_no']);
-
-        // 確保 $mysqli 沒被關閉
-        $stmt = $mysqli->prepare("
-            SELECT * FROM activity_comment
-            WHERE ACTIVITY_NO = ? AND COMMENT_STATUS = '顯示'
-            ORDER BY CREATED_AT DESC
-        ");
-
-        $stmt->bind_param("i", $activityNo);
-        $stmt->execute();
-        $result = $stmt->get_result();
- 
-        $comments = [];
-        while ($row = $result->fetch_assoc()) {
-            $comments[] = $row;
-        }
-
-        echo json_encode($comments, JSON_UNESCAPED_UNICODE);
-
-        $stmt->close();
-        // $mysqli->close(); // 不要在這裡關閉，留給程式結束自動關閉
-        break;
-
-    default:
-        echo json_encode(["error" => "不支援的請求方式"], JSON_UNESCAPED_UNICODE);
-        break;
+// --- 驗證請求 ---
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+    http_response_code(405);
+    echo json_encode(["error" => "僅支援 GET 請求方式"], JSON_UNESCAPED_UNICODE);
+    exit;
 }
+
+if (!isset($_GET['activity_no']) || !is_numeric($_GET['activity_no'])) {
+    http_response_code(400);
+    echo json_encode(["error" => "缺少有效的文章編號"], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+// --- 主要邏輯 ---
+
+// 1. 直接接收並轉換為整數
+$activityno = intval($_GET['activity_no']);
+$comments = [];
+
+if ($activityno > 0) {
+    $mysqli = db();
+
+    // 3. 直接執行您原本的第二階段查詢 (現在是唯一且正確的查詢)
+   $stmt = $mysqli->prepare("
+    SELECT 
+        pac.ACTIVITY_COMMENT_NO,
+        pac.MEMBER_ID,
+        m.MEMBER_NICKNAME,
+        pac.ACTIVITY_NO,
+        pac.COMMENT_CONTENT,
+        pac.PARENT_NO,
+        pac.CREATED_AT,
+        pac.COMMENT_STATUS
+    FROM activity_comment pac
+    JOIN member m ON pac.MEMBER_ID = m.MEMBER_ID
+    WHERE pac.ACTIVITY_NO = ?
+      AND pac.COMMENT_STATUS = '顯示'
+    ORDER BY pac.CREATED_AT DESC
+");
+    
+    // 4. 直接綁定整數 ID
+    $stmt->bind_param("i", $activityno);
+    $stmt->execute();
+    
+    $result = $stmt->get_result();
+    
+    // 5. 使用 fetch_all() 讓程式碼更簡潔
+    $comments = $result->fetch_all(MYSQLI_ASSOC);
+    
+    $stmt->close();
+    $mysqli->close();
+}
+
+// 6. 回傳最終結果
+echo json_encode($comments, JSON_UNESCAPED_UNICODE);
+
 ?>
