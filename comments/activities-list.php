@@ -31,7 +31,7 @@ $comments = [];
 if ($activityno > 0) {
     $mysqli = db();
 
-    // 3. 直接執行您原本的第二階段查詢 (現在是唯一且正確的查詢)
+
    $stmt = $mysqli->prepare("
     SELECT 
         pac.ACTIVITY_COMMENT_NO,
@@ -41,7 +41,8 @@ if ($activityno > 0) {
         pac.COMMENT_CONTENT,
         pac.PARENT_NO,
         pac.CREATED_AT,
-        pac.COMMENT_STATUS
+        pac.COMMENT_STATUS,
+        LIKE_COUNT
     FROM activity_comment pac
     JOIN member m ON pac.MEMBER_ID = m.MEMBER_ID
     WHERE pac.ACTIVITY_NO = ?
