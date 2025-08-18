@@ -59,47 +59,47 @@
       exit;
     }
   
-    // 密碼儲存置資料庫前先加密
-    $hashedPassword = password_hash($memberPassword, PASSWORD_DEFAULT);
-  
     try {
-      // 查詢手機號碼或email是否已註冊
+      // 檢查手機號碼或email是否已註冊
       $sql = "SELECT member_email, member_phone FROM member WHERE member_email = ? OR member_phone = ?";
       $stmt = $db->prepare($sql);
       $stmt->bind_param("ss", $memberEmail, $memberPhone);
       $stmt->execute();
       $result = $stmt->get_result();
-  
-      $existEmail = false;
-      $existPhone = false;
+      $errors = [];
   
       while ($row = $result->fetch_assoc()) {
         if ($row["member_email"] === $memberEmail) {
-          $existEmail = true;
+          $errors["email"] = "此信箱已被註冊";
+          // $existEmail = true;
         }
   
         if ($row["member_phone"] === $memberPhone) {
-          $existPhone = true;
+          $errors["phone"] = "此手機號碼已被註冊";
+          // $existPhone = true;
         }
       }
   
-      if ($existEmail || $existPhone) {
-        if ($existEmail) $message[] = "email 已註冊";
-        if ($existPhone) $message[] = "手機號碼已註冊";
-        
-        echo json_encode([
-          "exists" => true,
-          "message" => implode("，", $message)
-        ], JSON_UNESCAPED_UNICODE);
+      if (!empty($errors)) {
+        http_response_code(400);
+        echo json_encode(["success" => false, "errors" => $errors], JSON_UNESCAPED_UNICODE);
         exit;
       }
+
     } catch (mysqli_sql_exception $e) {
+      error_log("Database error in step 1: " . $e->getMessage());
       http_response_code(500);
-      echo json_encode(["error" => "資料庫錯誤", "message"=>$e->getMessage()]);
+      echo json_encode([
+        "success" => false,
+        "error" => "系統錯誤，請稍後再試"
+      ], JSON_UNESCAPED_UNICODE);
       exit;
     }
     
-    // 產生 tmpId 並存在 session 中
+    // 密碼儲存置資料庫前先加密 (產生 60 字元的 hash)
+    $hashedPassword = password_hash($memberPassword, PASSWORD_DEFAULT);
+
+    // 產生 session ID
     $tmpId = bin2hex(random_bytes(16));
 
     // 暫存第一步資料到 session
@@ -109,14 +109,22 @@
       "phone" => $memberPhone, 
       "password" => $hashedPassword
     ];
+
     echo json_encode(["success" => true, "tmp_id" => $tmpId]);
     exit;
 
   } elseif ($step == 2) {
-    // 第二步 取得第一步資料 及 新增基本資料，最後再一起寫入資料庫中
+    // 第二步 驗證基本資料並完成註冊
+
+    // 檢查 session
     $tmpId = $input["tmp_id"] ?? null;
+
     if (!$tmpId || !isset($_SESSION["step1"]) || $_SESSION["step1"]["tmp_id"] != $tmpId) {
-      echo json_encode(["error" => "找不到第一步資料"]);
+      http_response_code(400);
+      echo json_encode([
+        "success" => false, 
+        "error" => "連線逾時，請重新開始註冊"
+      ], JSON_UNESCAPED_UNICODE);
       exit;
     }
 
@@ -134,41 +142,182 @@
     $memberOccupation = $input["occupation"] ?? null;
     $memberInterests = $input["interests"] ?? [];
 
-    try {
-      $sql = "INSERT INTO member (member_email, member_phone, member_password, member_name, member_nickname, member_gender, member_birthdate, member_city, member_occupation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+    $errors = [];
+
+    // 驗證姓名
+    if (empty($memberName)) {
+      $errors["name"] = "請輸入姓名";
+    } elseif (mb_strlen($memberName) < 2 || mb_strlen($memberName) > 10) {
+      $errors["name"] = "姓名長度需在 2 ~ 10 個字元之間";
+    } elseif (!preg_match("/^[\x{4e00}-\x{9fa5}a-zA-Z\s]+$/u", $memberName)) {
+      $errors["name"] = "姓名只能包含中文、英文字母";
+    }
+
+    // 暱稱驗證
+    if (empty($memberNickname)) {
+      $errors["nickname"] = "請輸入暱稱";
+    } elseif (mb_strlen($memberNickname) < 1 || mb_strlen($memberNickname) > 10) {
+      $errors["nickname"] = "暱稱長度需在 1 ~ 10 個字元之間";
+    }
+
+    // 驗證性別
+    if (empty($memberBirthdate)) {
+      $errors["birthdate"] = "請選擇生日";
+    } else {
+      $date = DateTime::createFromFormat("Y-m-d", $memberBirthdate);
+      if (!$date || $date->format("Y-m-d") !== $memberBirthdate) {
+        $errors["birthdate"] = "生日格式錯誤";
+      } else {
+        $today = new DateTime();
+        if ($date > $today) {
+          $errors["birthdate"] = "生日不能晚於今天";
+        } else {
+          $age = $today->diff($date)->y;
+          if ($age < 18) {
+            $errors["birthdate"] = "您必須年滿18歲";
+          } elseif ($age > 120) {
+            $errors["birthdate"] = "請輸入有效的生日";
+          }
+        }
+      }
+    }
+
+    // 驗證縣市
+    if (empty($memberCity) || !is_numeric($memberCity)) {
+      $errors["city"] = "請選擇居住城市";
+    } else {
+      // 檢查城市是否存在
+      $sql = "SELECT city_no FROM city WHERE city_no = ?";
       $stmt = $db->prepare($sql);
-      $stmt->bind_param("sssssssss", $memberEmail, $memberPhone, $hashedPassword, $memberName, $memberNickname, $memberGender, $memberBirthdate, $memberCity, $memberOccupation);
+      $stmt->bind_param("i", $memberCity);
       $stmt->execute();
+      if ($stmt->get_result()->num_rows === 0) {
+        $errors["city"] = "無效的選項";
+      }
+    }
+
+    // 驗證職業
+    if (empty($memberOccupation) || !is_numeric($memberOccupation)) {
+      $errors["occupation"] = "請選擇職業";
+    } else {
+      // 檢查職業是否存在
+      $sql = "SELECT occupation_no FROM occupation WHERE occupation_no = ?";
+      $stmt = $db->prepare($sql);
+      $stmt->bind_param("i", $memberOccupation);
+      $stmt->execute();
+      if ($stmt->get_result()->num_rows === 0) {
+        $errors["occupation"] = "無效的選項";
+      }
+    }
+
+    // 驗證興趣
+    if (empty($memberInterests) || !array($memberInterests)) {
+      $errors["interest"] = "請至少選擇一個興趣";
+    } elseif (count($memberInterests) > 3) {
+      $errors["interests"] = "最多只能選擇 3 個興趣";
+    } else {
+      // 檢查所有興趣是否有效
+      foreach ($memberInterests as $interest) {
+        if (!is_numeric($interest)) {
+          if (!is_numeric($interest)) {
+            $errors["interest"] = "格式錯誤";
+            break;
+          }
+
+          $sql = "SELECT category_no FROM category WHERE category_no = ?";
+          $stmt = $db->prepare($sql);
+          $stmt->bind_param("i", $interest);
+          $stmt->execute();
+
+          if ($stmt->get_result()->num_rows === 0) {
+            $errors["interest"] = "包含無效的選項";
+            break;
+          }
+        }
+      }
+    }
+
+    // 如果有錯誤，回傳錯誤訊息
+    if (!empty($errors)) {
+      http_response_code(400);
+      echo json_encode([
+        "success" => false,
+        "errors" => $errors
+      ], JSON_UNESCAPED_UNICODE);
+      exit;
+    }
+
+    try {
+      $db->begin_transaction();
+      $sql = "INSERT INTO member (
+        member_email, 
+        member_phone, 
+        member_password, 
+        member_name, 
+        member_nickname, 
+        member_gender, 
+        member_birthdate, 
+        member_city, 
+        member_occupation,
+        member_status,
+        registration_date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '待審核', NOW())";
+
+      $stmt = $db->prepare($sql);
+      $stmt->bind_param(
+        "sssssssis", 
+        $memberEmail, 
+        $memberPhone, 
+        $hashedPassword, 
+        $memberName, 
+        $memberNickname,
+        $memberGender, 
+        $memberBirthdate, 
+        $memberCity, 
+        $memberOccupation
+      );
+
+      if (!$stmt->execute()) {
+        throw new Exception("新增會員資料失敗");
+      };
   
       // 取得此次新增至 member 資料表中所對應到的 member_id
       $memberId = $db->insert_id;
   
       // 新增會員興趣(代號)至 member_interest 資料表中
       if (!empty($memberInterests)) {
-        $values = [];
-        $types = "";
-        $params = [];
+        $sql = "INSERT INTO member_interest (member_id, interest_no) VALUES (?, ?)";
+        $stmt = $db->prepare($sql);
 
-        foreach($memberInterests as $interestNo) {
-          $values[] = "(?, ?)";
-          $types .= "ii";
-          $params[] = $memberId;
-          $params[] = $interestNo;
+        foreach ($memberInterests as $interestNo) {
+          $stmt->bind_param("ii", $memberId, $interestNo);
+          if (!$stmt->execute()) {
+            throw new Exception("新增興趣資料失敗");
+          }
         }
-        $sqlInterest = "INSERT INTO member_interest (MEMBER_ID, INTEREST_NO) VALUES " . implode(",", $values);
-        $stmtInterest = $db->prepare($sqlInterest);
-        $stmtInterest->bind_param($types, ...$params);
-        $stmtInterest->execute();
       }
+
+      $db->commit();
   
       // 完成後清除 session
       unset($_SESSION["step1"]);
   
-      echo json_encode(["success" => true]);
-    
-    } catch (mysqli_sql_exception $e) {
-        http_response_code(500);
-        echo json_encode(["success" => false, "error" => $e->getMessage()]);
+      echo json_encode([
+        "success" => true,
+        "member_id" => $memberId,
+        "message" => "註冊成功，請等候審核"
+      ], JSON_UNESCAPED_UNICODE);
+    } catch (Exception $e) {
+      $db->rollback();
+
+      // 記錄錯誤
+      error_log("Registration error in step 2: " . $e->getMessage());
+
+      http_response_code(500);
+      echo json_encode([
+        "success" => false,
+        "error" => "註冊失敗，請稍後再試"
+      ], JSON_UNESCAPED_UNICODE);
     }
   }
 ?>
