@@ -3,7 +3,14 @@
   // POST
   require_once __DIR__ . '/../config/db.php';
   header('Content-Type: application/json; charset=utf-8');
-  session_start();
+
+  // 設定 session cookie 參數
+  session_set_cookie_params([
+    'httponly' => true,
+    'secure' => true,      // 如果網站是 HTTPS
+    'samesite' => 'Strict' // 避免跨站請求偽造
+  ]);
+  session_start();         // 啟動session
 
   $db = db();
 
@@ -93,7 +100,7 @@
     }
     
     // 產生 tmpId 並存在 session 中
-    $tmpId = md5(uniqid(rand(), true));
+    $tmpId = bin2hex(random_bytes(16));
 
     // 暫存第一步資料到 session
     $_SESSION['step1'] = [
@@ -125,22 +132,43 @@
     $memberBirthdate = $input["birthdate"] ?? null;
     $memberCity = $input["location"] ?? null;
     $memberOccupation = $input["occupation"] ?? null;
-    // $memberInterests = $input["interests"] ?? null;
-  }
+    $memberInterests = $input["interests"] ?? [];
 
-  try {
-    $sql = "INSERT INTO member (member_email, member_phone, member_password, member_name, member_nickname, member_gender, member_birthdate, member_city, member_occupation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    $stmt = $db->prepare($sql);
-    $stmt->bind_param("sssssssss", $memberEmail, $memberPhone, $hashedPassword, $memberName, $memberNickname, $memberGender, $memberBirthdate, $memberCity, $memberOccupation);
-    $stmt->execute();
-
-    // 完成後清除 session
-    unset($_SESSION["step1"]);
-
-    echo json_encode(["success" => true]);
+    try {
+      $sql = "INSERT INTO member (member_email, member_phone, member_password, member_name, member_nickname, member_gender, member_birthdate, member_city, member_occupation) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+      $stmt = $db->prepare($sql);
+      $stmt->bind_param("sssssssss", $memberEmail, $memberPhone, $hashedPassword, $memberName, $memberNickname, $memberGender, $memberBirthdate, $memberCity, $memberOccupation);
+      $stmt->execute();
   
-  } catch (mysqli_sql_exception $e) {
-      http_response_code(500);
-      echo json_encode(["success" => false, "error" => $e->getMessage()]);
+      // 取得此次新增至 member 資料表中所對應到的 member_id
+      $memberId = $db->insert_id;
+  
+      // 新增會員興趣(代號)至 member_interest 資料表中
+      if (!empty($memberInterests)) {
+        $values = [];
+        $types = "";
+        $params = [];
+
+        foreach($memberInterests as $interestNo) {
+          $values[] = "(?, ?)";
+          $types .= "ii";
+          $params[] = $memberId;
+          $params[] = $interestNo;
+        }
+        $sqlInterest = "INSERT INTO member_interest (MEMBER_ID, INTEREST_NO) VALUES " . implode(",", $values);
+        $stmtInterest = $db->prepare($sqlInterest);
+        $stmtInterest->bind_param($types, ...$params);
+        $stmtInterest->execute();
+      }
+  
+      // 完成後清除 session
+      unset($_SESSION["step1"]);
+  
+      echo json_encode(["success" => true]);
+    
+    } catch (mysqli_sql_exception $e) {
+        http_response_code(500);
+        echo json_encode(["success" => false, "error" => $e->getMessage()]);
+    }
   }
 ?>
