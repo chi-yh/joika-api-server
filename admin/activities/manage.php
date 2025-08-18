@@ -1,23 +1,15 @@
 <?php
-    # 文章相關檢舉
+    # 揪團管理
     # GET
     require_once __DIR__ . '/../../config/db.php';
     if ($_SERVER["REQUEST_METHOD"] == "GET"){
 
     $db = db();
 
-    $sql = "SELECT 
-                pr.*,
-                rr.REASON,
-                m.MEMBER_NAME AS NAME
-            FROM 
-                post_report pr
-            LEFT JOIN 
-                report_reason rr 
-                ON pr.REPORT_REASON_NO = rr.REASON_NO
-            LEFT JOIN 
-                member m 
-            ON pr.REPORTER_ID = m.MEMBER_ID;";
+    $sql = "SELECT a.*, m.MEMBER_NAME AS HOST_NAME
+            FROM activity a
+            LEFT JOIN member m
+            ON a.STAFF_ID = m.MEMBER_ID";
     $result = $db->query($sql);
 
     $data = $result->fetch_all(MYSQLI_ASSOC);
