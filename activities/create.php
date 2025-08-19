@@ -66,8 +66,8 @@ if (isset($_FILES['activity_img']) && $_FILES['activity_img']['error'] === UPLOA
   $ext = pathinfo($fileName, PATHINFO_EXTENSION);
   $safeName = date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . strtolower($ext);
 
-  $uploadDirAbs = __DIR__ . '/../uploads/';
-  $uploadDirRel = 'uploads/'; // 存在資料庫的相對路徑
+  $uploadDirAbs = __DIR__ . '/../upload/activities-img';
+  $uploadDirRel = 'upload/'; // 存在資料庫的相對路徑
   if (!is_dir($uploadDirAbs)) { mkdir($uploadDirAbs, 0777, true); }
 
   $destAbs = $uploadDirAbs . $safeName;
