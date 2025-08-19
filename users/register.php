@@ -71,12 +71,10 @@
       while ($row = $result->fetch_assoc()) {
         if ($row["member_email"] === $memberEmail) {
           $errors["email"] = "此信箱已被註冊";
-          // $existEmail = true;
         }
   
         if ($row["member_phone"] === $memberPhone) {
           $errors["phone"] = "此手機號碼已被註冊";
-          // $existPhone = true;
         }
       }
   
@@ -211,18 +209,16 @@
     }
 
     // 驗證興趣
-    if (empty($memberInterests) || !array($memberInterests)) {
-      $errors["interest"] = "請至少選擇一個興趣";
+    if (empty($memberInterests) || !is_array($memberInterests)) {
+      $errors["interests"] = "請至少選擇一個興趣";
     } elseif (count($memberInterests) > 3) {
       $errors["interests"] = "最多只能選擇 3 個興趣";
     } else {
       // 檢查所有興趣是否有效
       foreach ($memberInterests as $interest) {
         if (!is_numeric($interest)) {
-          if (!is_numeric($interest)) {
-            $errors["interest"] = "格式錯誤";
-            break;
-          }
+          $errors["interests"] = "格式錯誤";
+          break;
 
           $sql = "SELECT category_no FROM category WHERE category_no = ?";
           $stmt = $db->prepare($sql);
@@ -230,7 +226,7 @@
           $stmt->execute();
 
           if ($stmt->get_result()->num_rows === 0) {
-            $errors["interest"] = "包含無效的選項";
+            $errors["interests"] = "包含無效的選項";
             break;
           }
         }
