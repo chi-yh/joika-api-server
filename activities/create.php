@@ -2,17 +2,14 @@
 
 require_once __DIR__ . '/../config/db.php';
 $db = db();
-
+header("Access-Control-Allow-Origin: http://localhost:5173");
+header("Content-Type: application/json; charset=UTF-8");
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
   http_response_code(405);
   echo json_encode(['error'=>true,'message'=>'只接受 POST'], JSON_UNESCAPED_UNICODE);
   exit;
 }
 
-/**
- * 這支 API 預期用 multipart/form-data（含檔案）送資料
- * 前端請用 FormData（見第 5 步）
- */
 
 // 1) 取得欄位（全部用表單 name 對應）
 $activity_name         = $_POST['activity_name']         ?? '';
@@ -29,9 +26,7 @@ $registration_start_date = $_POST['registration_start_date']?? null;
 // 2) dateRange（Element Plus datetimerange）→ 兩個 datetime
 $activity_start_date = $_POST['activity_start_date'] ?? '';
 $activity_end_date   = $_POST['activity_end_date']   ?? '';
-// 備註：若你前端只有傳 dateRange[0]/[1]，也可以接受：
-// $dateRange0 = $_POST['dateRange_0'] ?? '';
-// $dateRange1 = $_POST['dateRange_1'] ?? '';
+
 
 // 3) 基本驗證
 if (!$activity_name)          { http_response_code(400); echo json_encode(['error'=>true,'message'=>'活動名稱必填']); exit; }
@@ -46,7 +41,7 @@ if ($max_participant !== null && $max_participant < $min_participant) {
 }
 $location_full = trim($location.$address); 
 
-// 4) 上傳圖片（可選）
+// 4) 上傳圖片
 $upload_rel_path = null; // 存資料庫用
 if (isset($_FILES['activity_img']) && $_FILES['activity_img']['error'] === UPLOAD_ERR_OK) {
   $fileTmp  = $_FILES['activity_img']['tmp_name'];
@@ -67,21 +62,21 @@ if (isset($_FILES['activity_img']) && $_FILES['activity_img']['error'] === UPLOA
   $safeName = date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . strtolower($ext);
 
   $uploadDirAbs = __DIR__ . '/../upload/activities-img';
-  $uploadDirRel = 'upload/'; // 存在資料庫的相對路徑
+  $uploadDirRel = '/upload/activities-img'; // 存在資料庫的相對路徑
   if (!is_dir($uploadDirAbs)) { mkdir($uploadDirAbs, 0777, true); }
 
-  $destAbs = $uploadDirAbs . $safeName;
+  $destAbs =rtrim($uploadDirAbs, '/\\') . '/' . $safeName;
   if (!move_uploaded_file($fileTmp, $destAbs)) {
     http_response_code(500);
     echo json_encode(['error'=>true,'message'=>'圖片儲存失敗']);
     exit;
   }
-  $upload_rel_path = $uploadDirRel . $safeName;
+  $upload_rel_path = $upload_rel_path = rtrim($uploadDirRel, '/\\') . '/' . $safeName;
 }
 $registration_start_date = $_POST['registration_start_date'] ?? null;
 if ($registration_start_date === '') { $registration_start_date = null; }
    $current_participant = 0;         // 目前報名人數
-  $activity_status     = '草稿';    // 依你的 schema（文字/數字）自己決定
+  $activity_status     = '審核中';    // 依你的 schema（文字/數字）自己決定
 $host_member_id = 1; // 先用假的會員ID，之後換成登入的ID
 // 5) 寫入資料庫
 try {
