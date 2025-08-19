@@ -42,7 +42,8 @@ if ($postNo > 0) {
             pc.COMMENT_CONTENT, 
             pc.CREATED_AT, 
             pc.PARENT_NO, 
-            pc.COMMENT_STATUS
+            pc.COMMENT_STATUS,
+            pc.LIKE_COUNT
         FROM post_comment pc
         JOIN member m ON pc.MEMBER_ID = m.MEMBER_ID
         WHERE pc.POST_NO = ? 

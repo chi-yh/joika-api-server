@@ -1,13 +1,23 @@
 <?php
+    # 活動留言檢舉
+    # GET
     require_once __DIR__ . '/../../config/db.php';
     if ($_SERVER["REQUEST_METHOD"] == "GET"){
 
     $db = db();
 
-    // $num = isset($_GET['num']) ? (int)$_GET['num'] : 2;
-    // if ($num <= 0) $num = 2;
-
-    $sql = "SELECT * FROM member";
+    $sql = "SELECT 
+                acr.*,
+                rr.REASON,
+                m.MEMBER_NAME AS NAME
+            FROM 
+                activity_comment_report acr
+            LEFT JOIN 
+                report_reason rr 
+                ON acr.REPORT_REASON_NO = rr.REASON_NO
+            LEFT JOIN 
+                member m 
+                ON acr.REPORTER_ID = m.MEMBER_ID;";
     $result = $db->query($sql);
 
     $data = $result->fetch_all(MYSQLI_ASSOC);

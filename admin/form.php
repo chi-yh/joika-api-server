@@ -1,13 +1,15 @@
 <?php
-    require_once __DIR__ . '/../../config/db.php';
+    # 聯絡表單
+    # GET
+    require_once __DIR__ . '/../config/db.php';
     if ($_SERVER["REQUEST_METHOD"] == "GET"){
 
     $db = db();
 
-    // $num = isset($_GET['num']) ? (int)$_GET['num'] : 2;
-    // if ($num <= 0) $num = 2;
-
-    $sql = "SELECT * FROM member";
+    $sql = "SELECT f.*, m.MEMBER_NAME AS NAME
+            FROM support_form f
+            LEFT JOIN MEMBER m
+            ON f.MEMBER_ID = m.MEMBER_ID;";
     $result = $db->query($sql);
 
     $data = $result->fetch_all(MYSQLI_ASSOC);

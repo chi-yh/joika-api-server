@@ -1,13 +1,15 @@
 <?php
+    # 揪團管理
+    # GET
     require_once __DIR__ . '/../../config/db.php';
     if ($_SERVER["REQUEST_METHOD"] == "GET"){
 
     $db = db();
 
-    // $num = isset($_GET['num']) ? (int)$_GET['num'] : 2;
-    // if ($num <= 0) $num = 2;
-
-    $sql = "SELECT * FROM member";
+    $sql = "SELECT a.*, m.MEMBER_NAME AS HOST_NAME
+            FROM activity a
+            LEFT JOIN member m
+            ON a.STAFF_ID = m.MEMBER_ID";
     $result = $db->query($sql);
 
     $data = $result->fetch_all(MYSQLI_ASSOC);
