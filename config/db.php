@@ -1,6 +1,6 @@
 <?php
 // 處理跨域CORS
-require_once __DIR__ . '/../config/cors.php';
+require_once __DIR__ . '/cors.php';
 require_once __DIR__ . '/constant.php';
 
 // 讓 mysqli 連線錯誤丟出例外
