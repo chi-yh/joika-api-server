@@ -21,18 +21,27 @@
       exit;
   }
 
-  // 取得前端傳送的 JSON
-  $input = json_decode(file_get_contents("php://input"), true);
+  // 判斷是 JSON 還是 FormData
+  $contentType = $_SERVER["CONTENT_TYPE"] ?? '';
+  $isJson = strpos($contentType, 'application/json') !== false;
 
-  // 檢查解析是否成功
-  if ($input === null) {
-      http_response_code(400);
-      echo json_encode(["error" => "輸入格式錯誤，請傳送 JSON"], JSON_UNESCAPED_UNICODE);
-      exit;
+  if ($isJson) {
+    // Step 1 - JSON 資料
+    $input = json_decode(file_get_contents("php://input"), true);
+
+    // 檢查解析是否成功
+    if ($input === null) {
+        http_response_code(400);
+        echo json_encode(["error" => "輸入格式錯誤，請傳送 JSON"], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    // step 判斷
+    $step = $input["step"] ?? 1;
+  } else {
+    // Step 2 - FormData
+    $step = $_POST["step"] ?? 1;
   }
-
-  // step 判斷
-  $step = $input["step"] ?? 1;
 
   if ($step == 1) {
     // === 第一步 暫存 email、手機、密碼 ===
@@ -113,9 +122,12 @@
 
   } elseif ($step == 2) {
     // 第二步 驗證基本資料並完成註冊
+    error_log("POST data: " . print_r($_POST, true));
+    error_log("FILES data: " . print_r($_FILES, true));
 
     // 檢查 session
-    $tmpId = $input["tmp_id"] ?? null;
+    // $tmpId = $input["tmp_id"] ?? null;
+    $tmpId = $_POST["tmp_id"] ?? null;
 
     if (!$tmpId || !isset($_SESSION["step1"]) || $_SESSION["step1"]["tmp_id"] != $tmpId) {
       http_response_code(400);
@@ -131,14 +143,23 @@
     $memberPhone = $_SESSION["step1"]["phone"];
     $hashedPassword = $_SESSION["step1"]["password"];
     
-    // === 第二步 基本資料 ===
-    $memberName = $input["name"] ?? null;
-    $memberNickname = $input["nickname"] ?? null;
-    $memberGender = $input["gender"] ?? "N";
-    $memberBirthdate = $input["birthdate"] ?? null;
-    $memberCity = $input["location"] ?? null;
-    $memberOccupation = $input["occupation"] ?? null;
-    $memberInterests = $input["interests"] ?? [];
+    // 第二步的基本資料
+    // $memberName = $input["name"] ?? null;
+    // $memberNickname = $input["nickname"] ?? null;
+    // $memberGender = $input["gender"] ?? "N";
+    // $memberBirthdate = $input["birthdate"] ?? null;
+    // $memberCity = $input["location"] ?? null;
+    // $memberOccupation = $input["occupation"] ?? null;
+    // $memberInterests = $input["interests"] ?? [];
+    $tmpId = $_POST["tmp_id"] ?? null;
+    $memberName = $_POST["name"] ?? null;
+    $memberNickname = $_POST["nickname"] ?? null;
+    $memberGender = $_POST["gender"] ?? "N";
+    $memberBirthdate = $_POST["birthdate"] ?? null;
+    $memberCity = $_POST["location"] ?? null;
+    $memberOccupation = $_POST["occupation"] ?? null;
+    $memberInterests = $_POST["interests"] ?? [];
+    if (!is_array($memberInterests)) $memberInterests = [$memberInterests]; // 只有一個興趣時也轉成陣列
 
     $errors = [];
 
@@ -279,6 +300,22 @@
   
       // 取得此次新增至 member 資料表中所對應到的 member_id
       $memberId = $db->insert_id;
+
+      // 處理 avatar
+      $avatarPath = null;
+      if (!empty($_FILES["avatar"]) && $_FILES["avatar"]["error"] === 0) {
+        $ext = pathinfo($_FILES["avatar"]["name"], PATHINFO_EXTENSION);
+        $filename = "avatar_{$memberId}_" . time() . "." . $ext;
+        $uploadDir = __DIR__ . "/uploads/";
+        if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+        if (move_uploaded_file($_FILES["avatar"]["tmp_name"], $uploadDir . $filename)) {
+          $avatarPath = "uploads/" . $filename;
+          $sql = "UPDATE member SET member_avatar=? WHERE member_id=?";
+          $stmt = $db->prepare($sql);
+          $stmt->bind_param("si", $avatarPath, $memberId);
+          $stmt->execute();
+        }
+      }
   
       // 新增會員興趣(代號)至 member_interest 資料表中
       if (!empty($memberInterests)) {
@@ -301,6 +338,7 @@
       echo json_encode([
         "success" => true,
         "member_id" => $memberId,
+        "avatar"=>$avatarPath,
         "message" => "註冊成功，請等候審核"
       ], JSON_UNESCAPED_UNICODE);
     } catch (Exception $e) {

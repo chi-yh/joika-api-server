@@ -12,46 +12,65 @@
     exit;
   }
 
-  function fetchOptions($db, $sql) {
+  try {
+    // 取得縣市資料
+    $sql= "SELECT city_no AS value, city_name AS label FROM city ORDER BY city_no";
     $stmt = $db->prepare($sql);
     $stmt->execute();
     $result = $stmt->get_result();
-    $options = [];
+  
+    $cities = [];
     while ($row = $result->fetch_assoc()) {
-      $options[] = [
+      $cities[] = [
         "value" => intval($row["value"]),
         "label" => $row["label"]
       ];
     }
-    return $options;
-  }
-
-  try {
-    // 取得城市資料
-    $cities = fetchOptions($db, "SELECT city_no AS value, city_name AS label FROM city ORDER BY city_no");
 
     // 取得職業資料
-    $occupations = fetchOptions($db, "SELECT occupation_no AS value, occupation AS label FROM occupation ORDER BY occupation_no");
-    
-    // 取得興趣分類資料
-    $interests = fetchOptions($db, "SELECT category_no AS value, category_name AS label FROM category ORDER BY category_no");
+    $sql= "SELECT occupation_no AS value, occupation AS label FROM occupation ORDER BY occupation_no";
+    $stmt = $db->prepare($sql);
+    $stmt->execute();
+    $result = $stmt->get_result();
+  
+    $occupations = [];
+    while ($row = $result->fetch_assoc()) {
+      $occupations[] = [
+        "value" => intval($row["value"]),
+        "label" => $row["label"]
+      ];
+    }
 
-    http_response_code(200);
+    // 取得興趣分類資料
+    $sql= "SELECT category_no AS value, category_name AS label FROM category ORDER BY category_no";
+    $stmt = $db->prepare($sql);
+    $stmt->execute();
+    $result = $stmt->get_result();
+  
+    $interests = [];
+    $colors = ["#6DE1D2", "#FFD63A", "#FFD63A", "#FF8C86", "#FFA955", "#6DE1D2", "#77BEF0", "#77BEF0", "#FF8C86", "#FFA955", "#6DE1D2", "#77BEF0", "#969696"];
+    $index = 0;
+    while ($row = $result->fetch_assoc()) {
+      $interests[] = [
+        "value" => intval($row["value"]),
+        "label" => $row["label"],
+        "color" => $colors[$index % count($colors)]
+      ];
+      $index++;
+    }
+
+    // 回傳所有選單的資料
     echo json_encode([
-      "success" => true,
+      "success" => "true",
       "data" => [
         "cities" => $cities,
         "occupations" => $occupations,
         "interests" => $interests
       ]
     ], JSON_UNESCAPED_UNICODE);
-    
+
   } catch (mysqli_sql_exception $e) {
     http_response_code(500);
-    echo json_encode([
-      "success" => false,
-      "error" => "資料庫錯誤"
-      // "detail" => $e->getMessage() // 除錯用
-    ], JSON_UNESCAPED_UNICODE);
+    echo json_encode(["error" => "資料庫錯誤"], JSON_UNESCAPED_UNICODE);
   }
 ?>
