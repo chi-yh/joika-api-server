@@ -19,7 +19,7 @@ header('Access-Control-Allow-Headers: Content-Type');
 header('Access-Control-Allow-Methods: GET, POST, PATCH, PUT, DELETE, OPTIONS');
 header('Content-Type: application/json; charset=UTF-8');
 
-// ★ 調試用：幫我在 Network headers 看到這行就知道 cors.php 有跑
+// 測試cors.php有沒有執行，後續可以拔掉
 header('X-Debug-CORS: hit');
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
