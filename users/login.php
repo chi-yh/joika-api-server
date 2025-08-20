@@ -12,7 +12,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     $mysqli = db();
 
-    $sql = "SELECT * FROM member WHERE member_phone = ? AND member_status = '已通用'";
+    $sql = "SELECT * FROM member WHERE member_phone = ? AND member_status = '已通過'";
     $stmt = $mysqli->prepare($sql);
     $stmt->bind_param("s", $_POST["member_phone"]);
     $stmt->execute();
