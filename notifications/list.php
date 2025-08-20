@@ -1,25 +1,47 @@
 <?php
-    require_once __DIR__ . '/../config/db.php';
+#GET
+header('Content-Type: application/json; charset=utf-8');
+require_once __DIR__ . '/../config/db.php';
 
-    if ($_SERVER["REQUEST_METHOD"] == "GET"){
+$db = db();
 
-    $db = db();
+if ($_SERVER["REQUEST_METHOD"] !== "GET") {
+    http_response_code(405);
+    echo json_encode(["error" => "不支援的請求方法"], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
-    $num = isset($_GET['num']) ? (int)$_GET['num'] : 2;
-    if ($num <= 0) $num = 2;
+$memberId = $_GET['member_id'] ?? null;
+$type = $_GET['type'] ?? null; // '系統通知' 或 '互動通知'
 
-    $sql = "SELECT * FROM `notification` LIMIT $num";
-    $result = $db->query($sql);
+if (!$memberId) {
+    http_response_code(400);
+    echo json_encode(["error" => "缺少會員編號"], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
+$memberId = (int)$memberId;
+
+$sql = "SELECT 
+            n.NOTIFICATION_NO,
+            n.NOTIFICATION_TITLE,
+            n.NOTIFICATION_CONTENT,
+            n.NOTIFICATION_STATUS,
+            n.CREATED_AT
+        FROM notification n
+        WHERE n.MEMBER_ID = $memberId";
+
+if ($type) {
+    $safeType = $db->real_escape_string($type);
+    $sql .= " AND n.NOTIFICATION_TYPE = '$safeType'";
+}
+
+$result = $db->query($sql);
+
+if ($result) {
     $data = $result->fetch_all(MYSQLI_ASSOC);
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
-
-    $db->close();
-    exit();
-    }
-    
-    http_response_code(403);
-    $reply_data = new stdClass(); 
-    $reply_data->error = "拒絕存取。";
-    echo json_encode($reply_data);
-?>
+} else {
+    http_response_code(500);
+    echo json_encode(["error" => "資料庫查詢失敗：" . $db->error], JSON_UNESCAPED_UNICODE);
+}
