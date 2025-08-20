@@ -25,8 +25,12 @@ try {
     require_once __DIR__ . '/../config/db.php';
     $mysqli = db();
 
-    $sql = "SELECT * FROM `post` WHERE `POST_NO` = ? AND `POST_STATUS` = '顯示'";
-    
+ // JOIN member 取得暱稱
+    $sql = "SELECT p.*, m.MEMBER_NICKNAME
+            FROM `post` p
+            JOIN `member` m ON p.MEMBER_ID = m.MEMBER_ID
+            WHERE p.POST_NO = ? AND p.POST_STATUS = '顯示'";
+            
     $stmt = $mysqli->prepare($sql);
     if (!$stmt) {
         throw new Exception("SQL 語法準備失敗: " . $mysqli->error);
