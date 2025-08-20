@@ -12,7 +12,6 @@
         }
 
         $input = json_decode(file_get_contents("php://input"), true);
-        file_put_contents(__DIR__ . '/debug.log', print_r($input, true));
 
         $reporterId = (int)($input['reporter_id'] ?? 0);
         $postNo = (int)($input['post_no'] ?? 0);
@@ -27,7 +26,6 @@
 
         
         $descriptionEscaped = $db->real_escape_string($description);
-        
 
         $sql = "INSERT INTO post_report (
             REPORTER_ID,
