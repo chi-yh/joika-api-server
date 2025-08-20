@@ -35,13 +35,18 @@ $sql = "SELECT
     m.MEMBER_NICKNAME,
     m.MEMBER_BIRTHDATE,
     m.MEMBER_CITY,
-    c.CITY_NAME AS MEMBER_CITY,
+    c.CITY_NAME AS MEMBER_CITY_NAME,
     m.MEMBER_OCCUPATION,
-    o.OCCUPATION AS MEMBER_OCCUPATION
+    o.OCCUPATION AS MEMBER_OCCUPATION_NAME,
+    m.MEMBER_AVATAR,
+    m.HOST_SCORE_TOTAL,
+    m.HOST_COUNT_TOTAL,
+    m.JOINER_SCORE_TOTAL,
+    m.JOINER_COUNT_TOTAL
 FROM member m
 LEFT JOIN city c ON c.CITY_NO = m.MEMBER_CITY
 LEFT JOIN occupation o ON o.OCCUPATION_NO = m.MEMBER_OCCUPATION
-WHERE m.member_id = ?";
+WHERE m.MEMBER_ID = ?";
 
 $stmt = $mysqli->prepare($sql);
 $stmt->bind_param("i", $memberId);
@@ -60,9 +65,20 @@ if (!empty($user['MEMBER_BIRTHDATE'])) {
     $birth = new DateTime($user['MEMBER_BIRTHDATE']);
     $today = new DateTime();
     $user['age'] = $today->diff($birth)->y;
-} else {
-    $user['age'] = null;
 }
+
+//算評分
+
+// 轉數字，防 null
+$hostScoreTotal   = isset($user['HOST_SCORE_TOTAL'])   ? (int)$user['HOST_SCORE_TOTAL']: 0;
+$hostCountTotal   = isset($user['HOST_COUNT_TOTAL'])   ? (int)$user['HOST_COUNT_TOTAL']: 0;
+$joinerScoreTotal = isset($user['JOINER_SCORE_TOTAL']) ? (int)$user['JOINER_SCORE_TOTAL']: 0;
+$joinerCountTotal = isset($user['JOINER_COUNT_TOTAL']) ? (int)$user['JOINER_COUNT_TOTAL']: 0;
+
+$user['hostAvg'] = $hostCountTotal   > 0 ? round($hostScoreTotal   / $hostCountTotal,   0) : null;
+$user['joinerAvg'] = $joinerCountTotal > 0 ? round($joinerScoreTotal / $joinerCountTotal, 0) : null;
+
+
 
 http_response_code(200);
 echo json_encode([
