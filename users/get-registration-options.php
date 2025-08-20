@@ -48,11 +48,15 @@
     $result = $stmt->get_result();
   
     $interests = [];
+    $colors = ["#6DE1D2", "#FFD63A", "#FFD63A", "#FF8C86", "#FFA955", "#6DE1D2", "#77BEF0", "#77BEF0", "#FF8C86", "#FFA955", "#6DE1D2", "#77BEF0", "#969696"];
+    $index = 0;
     while ($row = $result->fetch_assoc()) {
       $interests[] = [
         "value" => intval($row["value"]),
-        "label" => $row["label"]
+        "label" => $row["label"],
+        "color" => $colors[$index % count($colors)]
       ];
+      $index++;
     }
 
     // 回傳所有選單的資料

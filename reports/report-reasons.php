@@ -19,5 +19,4 @@
         $reply_data = new stdClass(); 
         $reply_data->error = "拒絕存取。";
         echo json_encode($reply_data);
-    ?>
 ?>
