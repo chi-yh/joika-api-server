@@ -38,6 +38,7 @@ $sql = "SELECT
     c.CITY_NAME AS MEMBER_CITY_NAME,
     m.MEMBER_OCCUPATION,
     o.OCCUPATION AS MEMBER_OCCUPATION_NAME,
+    m.MEMBER_AVATAR,
     m.HOST_SCORE_TOTAL,
     m.HOST_COUNT_TOTAL,
     m.JOINER_SCORE_TOTAL,
@@ -76,6 +77,7 @@ $joinerCountTotal = isset($user['JOINER_COUNT_TOTAL']) ? (int)$user['JOINER_COUN
 
 $user['hostAvg'] = $hostCountTotal   > 0 ? round($hostScoreTotal   / $hostCountTotal,   0) : null;
 $user['joinerAvg'] = $joinerCountTotal > 0 ? round($joinerScoreTotal / $joinerCountTotal, 0) : null;
+
 
 
 http_response_code(200);
