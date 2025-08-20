@@ -12,7 +12,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     $mysqli = db();
 
-    $sql = "SELECT * FROM member WHERE member_phone = ?";
+    $sql = "SELECT * FROM member WHERE member_phone = ? AND member_status = '已通用'";
     $stmt = $mysqli->prepare($sql);
     $stmt->bind_param("s", $_POST["member_phone"]);
     $stmt->execute();
@@ -22,7 +22,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if (!$user) { // 找不到會員
         $reply_data = [
             "code" => "0001",
-            "msg"  => "電話不存在"
+            "msg"  => "此帳號不存在"
         ];
     } else {
         // ※ 正式上線請改用 password_verify
