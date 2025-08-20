@@ -2,14 +2,14 @@
 // 開發期便於除錯
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
-
+header("Access-Control-Allow-Origin: http://localhost:5173");
 header('Content-Type: application/json; charset=utf-8');
 date_default_timezone_set('Asia/Taipei');
 
 require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/db.php';
 session_start();
-$_SESSION['user']['id'] = 1;
+
 /* 工具 */
 function json($data, int $code=200){
   http_response_code($code);
