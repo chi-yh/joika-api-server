@@ -9,7 +9,8 @@
     $sql = "SELECT 
                 acr.*,
                 rr.REASON,
-                m.MEMBER_NAME AS NAME
+                m.MEMBER_NAME AS REPORTER_NAME,
+                s.STAFF_NAME AS ADMIN_NAME
             FROM 
                 activity_comment_report acr
             LEFT JOIN 
@@ -17,7 +18,10 @@
                 ON acr.REPORT_REASON_NO = rr.REASON_NO
             LEFT JOIN 
                 member m 
-                ON acr.REPORTER_ID = m.MEMBER_ID;";
+                ON acr.REPORTER_ID = m.MEMBER_ID
+            LEFT JOIN 
+                staff s
+                ON acr.STAFF_ID = s.STAFF_ID;";
     $result = $db->query($sql);
 
     $data = $result->fetch_all(MYSQLI_ASSOC);
