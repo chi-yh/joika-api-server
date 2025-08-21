@@ -12,8 +12,7 @@
     // if ($num <= 0) $num = 2;
 
     $sql = "SELECT * FROM `activity`
-            WHERE `ACTIVITY_STATUS` <> '已取消'
-            AND `ACTIVITY_STATUS` <> '已結束'
+            WHERE `ACTIVITY_STATUS` = '開團中'
             ORDER BY `CREATED_AT` DESC";
     $result = $db->query($sql);
 

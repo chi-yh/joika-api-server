@@ -13,8 +13,7 @@
             SELECT * 
             FROM `activity` 
             WHERE `ACTIVITY_START_DATE` BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 14 DAY)
-              AND `ACTIVITY_STATUS` <> '已取消'
-              AND `ACTIVITY_STATUS` <> '已結束'
+              AND `ACTIVITY_STATUS` = '開團中'
             ORDER BY `ACTIVITY_START_DATE` ASC
         ";
         $result = $db->query($sql);
