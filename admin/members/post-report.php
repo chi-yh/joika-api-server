@@ -21,7 +21,8 @@
                 ON pr.REPORTER_ID = m.MEMBER_ID
             LEFT JOIN
                 staff s
-                ON pr.STAFF_ID = s.STAFF_ID;";
+                ON pr.STAFF_ID = s.STAFF_ID
+            ORDER BY pr.POST_REPORT_NO ASC";
     $result = $db->query($sql);
 
     $data = $result->fetch_all(MYSQLI_ASSOC);

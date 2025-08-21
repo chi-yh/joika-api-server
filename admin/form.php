@@ -9,7 +9,8 @@
     $sql = "SELECT f.*, m.MEMBER_NAME AS NAME
             FROM support_form f
             LEFT JOIN MEMBER m
-            ON f.MEMBER_ID = m.MEMBER_ID;";
+            ON f.MEMBER_ID = m.MEMBER_ID
+            ORDER BY f.FORM_ID ASC";
     $result = $db->query($sql);
 
     $data = $result->fetch_all(MYSQLI_ASSOC);

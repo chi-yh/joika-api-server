@@ -21,7 +21,8 @@
                 ON acr.REPORTER_ID = m.MEMBER_ID
             LEFT JOIN 
                 staff s
-                ON acr.STAFF_ID = s.STAFF_ID;";
+                ON acr.STAFF_ID = s.STAFF_ID
+            ORDER BY acr.ACTIVITY_COMMENT_REPORT_ID ASC;";
     $result = $db->query($sql);
 
     $data = $result->fetch_all(MYSQLI_ASSOC);
