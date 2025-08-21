@@ -1,11 +1,15 @@
 
 <?php
+
 // 顯示錯誤（開發期用，正式環境建議關掉）
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-header("Access-Control-Allow-Origin: *");
-header("Content-Type: application/json; charset=UTF-8");
+ header("Access-Control-Allow-Origin: *");
+ header("Content-Type: application/json; charset=UTF-8");
+
+    // require_once __DIR__ . '/../config/cors.php';
+    // require_once __DIR__ . '/../config/db.php';
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
   http_response_code(405);
@@ -38,7 +42,7 @@ $safeName = date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . strtolower(
 
 // 上傳路徑
 $uploadDirAbs = __DIR__ . '/../upload/article-img';
-$uploadDirRel = '/upload/article-img'
+$uploadDirRel = '/upload/article-img';
 if (!is_dir($uploadDirAbs)) { mkdir($uploadDirAbs, 0777, true); }
 
 $destAbs = rtrim($uploadDirAbs, '/\\') . '/' . $safeName;
