@@ -1,5 +1,4 @@
 <?php
-require_once __DIR__ . '/../config/cors.php';   // 先處理 CORS
 require_once __DIR__ . '/../config/db.php';
 
 header('Content-Type: application/json; charset=utf-8');

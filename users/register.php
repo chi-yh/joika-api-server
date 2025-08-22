@@ -1,6 +1,7 @@
 <?php
   // 前台註冊
   // POST
+  require_once __DIR__ . '/../config/cors.php';
   require_once __DIR__ . '/../config/db.php';
   header('Content-Type: application/json; charset=utf-8');
 
@@ -47,7 +48,7 @@
     // === 第一步 暫存 email、手機、密碼 ===
     $memberEmail = $input["email"] ?? null;
     $memberPhone = $input["phone"] ?? null;
-    $memberPassword = $input["password"] ?? null;
+    $memberPassword = $input["password"] ?? null; // 長度 6 ~ 12 字元
     
     // 檢查必填欄位是否有填寫
     if (!$memberEmail) {
@@ -66,6 +67,9 @@
       http_response_code(400);
       echo json_encode(["error" => "密碼未填寫"], JSON_UNESCAPED_UNICODE);
       exit;
+    } elseif ((strlen($memberPassword) < 6 && strlen($memberPassword) > 12)) {
+      http_response_code(400);
+      echo json_encode(["error" => "密碼長度需介於 6 ~ 12 字元"]);
     }
   
     try {
@@ -126,7 +130,6 @@
     error_log("FILES data: " . print_r($_FILES, true));
 
     // 檢查 session
-    // $tmpId = $input["tmp_id"] ?? null;
     $tmpId = $_POST["tmp_id"] ?? null;
 
     if (!$tmpId || !isset($_SESSION["step1"]) || $_SESSION["step1"]["tmp_id"] != $tmpId) {
@@ -142,15 +145,8 @@
     $memberEmail = $_SESSION["step1"]["email"];
     $memberPhone = $_SESSION["step1"]["phone"];
     $hashedPassword = $_SESSION["step1"]["password"];
-    
-    // 第二步的基本資料
-    // $memberName = $input["name"] ?? null;
-    // $memberNickname = $input["nickname"] ?? null;
-    // $memberGender = $input["gender"] ?? "N";
-    // $memberBirthdate = $input["birthdate"] ?? null;
-    // $memberCity = $input["location"] ?? null;
-    // $memberOccupation = $input["occupation"] ?? null;
-    // $memberInterests = $input["interests"] ?? [];
+
+    // 第二步要填寫的資料
     $tmpId = $_POST["tmp_id"] ?? null;
     $memberName = $_POST["name"] ?? null;
     $memberNickname = $_POST["nickname"] ?? null;
@@ -266,6 +262,48 @@
 
     try {
       $db->begin_transaction();
+
+      // 處理 avatar
+      $avatarPath = "";
+
+      // 限制上傳的圖片檔案大小及檔案格式
+      $maxFileSize = 5 * 1024 * 1024; // 5MB
+
+      if (!empty($_FILES["avatar"]) && $_FILES["avatar"]["error"] === 0) {
+
+        if ($_FILES["avatar"]["size"] > $maxFileSize) {
+          http_response_code(400);
+          echo json_encode([
+            "error" => "檔案太大，最大限制為 5MB"
+          ]);
+          exit;
+        }
+
+        $allowedTypes = ["image/jpeg", "image/png", "image/gif"];
+        if (!in_array($_FILES["avatar"]["type"], $allowedTypes)) {
+          http_response_code(400);
+          echo json_encode([
+            "error" => "僅允許 JPEG/PNG/GIF 檔案"
+          ]);
+          exit;
+        }
+
+        $ext = strtolower(pathinfo($_FILES["avatar"]["name"], PATHINFO_EXTENSION)); // 副檔名
+        $randomStr = bin2hex(random_bytes(4)); // 產生新檔名 (隨機字串 + 副檔名)
+        $saveName = date("Ymd_His") . "_" . $randomStr . "." . $ext;
+        $uploadDir = __DIR__ . "/uploads/avatar";
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        // 最後要儲存的完整路徑
+        $targetFile = $uploadDir . $saveName;
+
+        if (move_uploaded_file($_FILES["avatar"]["tmp_name"], $targetFile)) {
+          $avatarPath = $saveName; // 只存檔名
+        }
+      }
+
       $sql = "INSERT INTO member (
         member_email, 
         member_phone, 
@@ -276,13 +314,14 @@
         member_birthdate, 
         member_city, 
         member_occupation,
+        member_avatar,
         member_status,
         registration_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '待審核', NOW())";
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '待審核', NOW())";
 
       $stmt = $db->prepare($sql);
       $stmt->bind_param(
-        "sssssssis", 
+        "sssssssiss", 
         $memberEmail, 
         $memberPhone, 
         $hashedPassword, 
@@ -291,31 +330,14 @@
         $memberGender, 
         $memberBirthdate, 
         $memberCity, 
-        $memberOccupation
+        $memberOccupation,
+        $avatarPath
       );
 
-      if (!$stmt->execute()) {
-        throw new Exception("新增會員資料失敗");
-      };
+      if (!$stmt->execute()) throw new Exception("新增會員資料失敗");
   
       // 取得此次新增至 member 資料表中所對應到的 member_id
       $memberId = $db->insert_id;
-
-      // 處理 avatar
-      $avatarPath = null;
-      if (!empty($_FILES["avatar"]) && $_FILES["avatar"]["error"] === 0) {
-        $ext = pathinfo($_FILES["avatar"]["name"], PATHINFO_EXTENSION);
-        $filename = "avatar_{$memberId}_" . time() . "." . $ext;
-        $uploadDir = __DIR__ . "/uploads/";
-        if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-        if (move_uploaded_file($_FILES["avatar"]["tmp_name"], $uploadDir . $filename)) {
-          $avatarPath = "uploads/" . $filename;
-          $sql = "UPDATE member SET member_avatar=? WHERE member_id=?";
-          $stmt = $db->prepare($sql);
-          $stmt->bind_param("si", $avatarPath, $memberId);
-          $stmt->execute();
-        }
-      }
   
       // 新增會員興趣(代號)至 member_interest 資料表中
       if (!empty($memberInterests)) {
@@ -324,9 +346,7 @@
 
         foreach ($memberInterests as $interestNo) {
           $stmt->bind_param("ii", $memberId, $interestNo);
-          if (!$stmt->execute()) {
-            throw new Exception("新增興趣資料失敗");
-          }
+          if (!$stmt->execute()) throw new Exception("新增興趣資料失敗");
         }
       }
 
@@ -341,6 +361,7 @@
         "avatar"=>$avatarPath,
         "message" => "註冊成功，請等候審核"
       ], JSON_UNESCAPED_UNICODE);
+
     } catch (Exception $e) {
       $db->rollback();
 

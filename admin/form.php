@@ -6,10 +6,16 @@
 
     $db = db();
 
-    $sql = "SELECT f.*, m.MEMBER_NAME AS NAME
+    $sql = "SELECT 
+                f.*,
+                m.MEMBER_NAME AS NAME,
+                s.STAFF_NAME AS PROCESSED_NAME
             FROM support_form f
             LEFT JOIN MEMBER m
-            ON f.MEMBER_ID = m.MEMBER_ID;";
+                ON f.MEMBER_ID = m.MEMBER_ID
+            LEFT JOIN staff s
+                ON f.PROCESSED_BY = s.STAFF_ID
+            ORDER BY f.FORM_ID ASC;";
     $result = $db->query($sql);
 
     $data = $result->fetch_all(MYSQLI_ASSOC);
