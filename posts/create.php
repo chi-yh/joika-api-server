@@ -1,27 +1,11 @@
 <?php
 session_start();
-if (isset($_GET['__dev_login']) && $_GET['__dev_login'] == '1') {
-    $_SESSION['member_id'] = 1;
-    echo json_encode([
-        'ok' => true,
-        'msg' => 'dev login set',
-        'sid' => session_id(),
-        'member_id' => $_SESSION['member_id']
-    ], JSON_UNESCAPED_UNICODE);
-    exit;
-}
-
-
 
 require_once __DIR__ . '/../config/db.php';
 header('Content-Type: application/json');
 
-// 開發期可暫開
-// ini_set('display_errors', '1'); error_reporting(E_ALL);
-
 $db = db();
 
-/* 依你的環境調整這兩個常數 */
 $UPLOAD_DIR_ABS  = __DIR__ . '/../upload/article-img'; // 伺服器實體路徑
 $PUBLIC_IMG_BASE = 'upload/article-img';               // 前端可讀路徑（相對或完整 URL）
 
@@ -150,6 +134,6 @@ if ($result) {
         'ok' => false,
         'error' => '新增文章失敗',
         'details' => $db->error,
-    ], JSON_UNESCAPED_UNICODE)
+    ], JSON_UNESCAPED_UNICODE);
 }
 $db->close();
