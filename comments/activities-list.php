@@ -41,8 +41,7 @@ if ($activityno > 0) {
         pac.COMMENT_CONTENT,
         pac.PARENT_NO,
         pac.CREATED_AT,
-        pac.COMMENT_STATUS,
-        LIKE_COUNT
+        pac.COMMENT_STATUS
     FROM activity_comment pac
     JOIN member m ON pac.MEMBER_ID = m.MEMBER_ID
     WHERE pac.ACTIVITY_NO = ?
