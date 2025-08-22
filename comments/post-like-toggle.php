@@ -2,8 +2,9 @@
 // 點讚/取消讚的切換
 
 // --- 1. 引用設定檔與設定標頭 ---
+require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/db.php';
-header('Content-Type: application/json; charset=utf-8');
+session_start();
 
 // --- 2. 檢查請求方法 ---
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
@@ -17,7 +18,7 @@ try {
     $input = json_decode(file_get_contents("php://input"), true);
 
     $commentNo = intval($input["comment_no"] ?? 0);
-    $memberId  = intval($input["member_id"]  ?? 0);
+    $memberId  = intval($_SESSION['user']["id"]  ?? 0);
 
     if (!$commentNo || !$memberId) {
         http_response_code(400); 
