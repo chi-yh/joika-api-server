@@ -1,4 +1,3 @@
-<!-- ===========不能用  要串檢舉?============ -->
 
 <?php
  header('Content-Type: application/json; charset=utf-8');
@@ -24,15 +23,29 @@ $commentNo = intval($input['POST_COMMENT_NO']);
 try {
     $mysqli = db();
 
-    // 更新狀態為隱藏
+    // 先查詢 post_report 是否有通過的檢舉
+    $stmt = $mysqli->prepare("SELECT REPORT_STATUS FROM post_report WHERE POST_COMMENT_NO = ? ORDER BY HANDLE_AT DESC LIMIT 1");
+    $stmt->bind_param("i", $commentNo);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $report = $result->fetch_assoc();
+    $stmt->close();
+
+    if (!$report || $report['REPORT_STATUS'] !== '通過') {
+        echo json_encode(["success" => false, "message" => "檢舉未通過，無法隱藏留言"]);
+        $mysqli->close();
+        exit;
+    }
+
+    // 檢舉通過才隱藏留言
     $stmt = $mysqli->prepare("UPDATE post_comment SET COMMENT_STATUS = '隱藏' WHERE POST_COMMENT_NO = ?");
     $stmt->bind_param("i", $commentNo);
     $stmt->execute();
 
     if ($stmt->affected_rows > 0) {
-        echo json_encode(["success" => true, "message" => "留言已刪除"]);
+        echo json_encode(["success" => true, "message" => "留言已隱藏"]);
     } else {
-        echo json_encode(["success" => false, "message" => "找不到留言或已刪除"]);
+        echo json_encode(["success" => false, "message" => "找不到留言或已隱藏"]);
     }
 
     $stmt->close();
