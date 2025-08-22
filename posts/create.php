@@ -70,7 +70,7 @@ $plain_text        = trim(html_entity_decode(strip_tags($content_for_plain), ENT
 // 6) 處理首圖（來自額外 input: POST_IMG）
 $post_img_path = null;
 if (isset($_FILES['post_img']) && $_FILES['post_img']['error'] === UPLOAD_ERR_OK) {
-    // 型態/大小檢查
+    
     $maxSize = 5 * 1024 * 1024; // 5MB
     if ($_FILES['post_img']['size'] > $maxSize) {
         http_response_code(400);
@@ -108,11 +108,11 @@ if (isset($_FILES['post_img']) && $_FILES['post_img']['error'] === UPLOAD_ERR_OK
         exit;
     }
 
-    // 存到 DB 的路徑（依你站點，可用相對或完整 URL）
+
     $post_img_path = rtrim($PUBLIC_IMG_BASE, '/') . '/' . $filename;
 }
 
-// 7) 寫入 DB（POST_CONTENT=純文字、POST_IMG=首圖路徑）
+// 7) 寫入 DB
 $created_at = date('Y-m-d H:i:s');
 $status     = '顯示';
 
@@ -142,8 +142,7 @@ if ($result) {
     echo json_encode([
         'ok' => true,
         'POST_NO' => $db->insert_id,
-        'affected_rows' => $db->affected_rows,
-        'sql' => $sqlInsert   // ⚠️ 開發用，方便除錯，正式上線記得移除
+        'affected_rows' => $db->affected_rows, 
     ], JSON_UNESCAPED_UNICODE);
 } else {
     http_response_code(500);
@@ -151,7 +150,6 @@ if ($result) {
         'ok' => false,
         'error' => '新增文章失敗',
         'details' => $db->error,
-        'sql' => $sqlInsert   // ⚠️ 方便你看到失敗的 SQL
-    ], JSON_UNESCAPED_UNICODE);
+    ], JSON_UNESCAPED_UNICODE)
 }
 $db->close();
