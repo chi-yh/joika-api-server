@@ -1,5 +1,17 @@
 <?php
+    require_once __DIR__ . '/../config/cors.php';
     require_once __DIR__ . '/../config/db.php';
+
+    header('Content-Type: application/json; charset=utf-8');
+
+    // 建議設定 session cookie 參數（也可集中放在 bootstrap 檔）
+    session_set_cookie_params([
+        'lifetime' => 60*60*24*7,
+        'path' => '/',
+        'secure' => false,      // https 才能設 true
+        'httponly' => true,
+        'samesite' => 'Lax',    // 前後端不同網域且要跨站 cookie 時，可考慮 'None' + secure=true
+    ]);
     session_start();
 
     if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
@@ -26,7 +38,9 @@
                     a.ACTIVITY_NO,
                     a.ACTIVITY_NAME,
                     a.ACTIVITY_IMG,
+                    DATE_FORMAT(a.ACTIVITY_START_DATE, '%m/%d') AS ACTIVITY_START_DATE,
                     a.ACTIVITY_STATUS,
+                    a.ACTIVITY_DESCRIPTION,
                     'participant' AS role
                 FROM PARTICIPANT p
                 JOIN ACTIVITY a ON a.ACTIVITY_NO = p.ACTIVITY_NO
@@ -39,7 +53,9 @@
                     a.ACTIVITY_NO,
                     a.ACTIVITY_NAME,
                     a.ACTIVITY_IMG,
+                    DATE_FORMAT(a.ACTIVITY_START_DATE, '%m/%d') AS ACTIVITY_START_DATE,
                     a.ACTIVITY_STATUS,
+                    a.ACTIVITY_DESCRIPTION,
                     'host' AS role
                     FROM ACTIVITY a
                 WHERE a.HOST_MEMBER_ID = ?
