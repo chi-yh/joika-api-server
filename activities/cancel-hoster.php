@@ -82,6 +82,31 @@ try {
   if ($stmt2->affected_rows !== 1) throw new Exception('NOT_ACTIVE');
   $stmt2->close();
 
+
+$sql3 = "INSERT INTO notification
+          (MEMBER_ID, NOTIFICATION_TITLE, NOTIFICATION_CONTENT, CREATED_AT, NOTIFICATION_STATUS)
+         SELECT
+          p.PARTICIPANT_ID,
+          LEFT(CONCAT('活動【', COALESCE(NULLIF(a.ACTIVITY_NAME,''), a.ACTIVITY_NO), '】已被主揪取消'), 50),
+          LEFT(
+            CONCAT(
+              '您參加的活動【', COALESCE(NULLIF(a.ACTIVITY_NAME,''), a.ACTIVITY_NO), '】已被主揪取消。',
+              IFNULL(CONCAT('（原因：', ?, '）'), '')
+            ),
+            1000
+          ),
+          NOW(),
+          '未讀'
+         FROM PARTICIPANT p
+         JOIN ACTIVITY a ON a.ACTIVITY_NO = p.ACTIVITY_NO
+         WHERE p.ACTIVITY_NO = ?";
+  $stmt3 = $mysqli->prepare($sql3);
+  if (!$stmt3) throw new Exception('SQL3_PREPARE_FAILED: '.$mysqli->error);
+  if (!$stmt3->bind_param('si', $reasonDetail, $activityNo)) throw new Exception('SQL3_BIND_FAILED: '.$stmt3->error);
+  if (!$stmt3->execute()) throw new Exception('SQL3_EXECUTE_FAILED: '.$stmt3->error);
+  $stmt3->close();
+
+  
   // 4) 回傳 DB 時間
   $rs = $mysqli->query("SELECT NOW() AS ts");
   if (!$rs) throw new Exception('SQL_NOW_FAILED: '.$mysqli->error);
