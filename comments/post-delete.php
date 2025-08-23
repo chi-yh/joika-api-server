@@ -31,6 +31,11 @@ try {
     $report = $result->fetch_assoc();
     $stmt->close();
 
+if (!$report || empty($report['REPORT_STATUS']) || $report['REPORT_STATUS'] !== '通過') {
+    echo json_encode(["success" => false, "message" => "檢舉未通過，無法隱藏留言"]);
+    $mysqli->close();
+    exit;
+}
     if (!$report || $report['REPORT_STATUS'] !== '通過') {
         echo json_encode(["success" => false, "message" => "檢舉未通過，無法隱藏留言"]);
         $mysqli->close();
