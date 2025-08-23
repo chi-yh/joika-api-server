@@ -1,42 +1,44 @@
 <?php
-#POST
+// notifications/mark-read.php
+session_start();
 header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/../config/db.php';
 
 $db = db();
 
-if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+// 只允許 POST
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(405);
-    echo json_encode(["error" => "不支援的請求方法"], JSON_UNESCAPED_UNICODE);
+    echo json_encode(['error' => '不支援的請求方法'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-// 取得 POST 的 JSON 內容
-$data = json_decode(file_get_contents("php://input"), true);
-$notificationNo = $data['notification_no'] ?? null;
+// 驗證登入（兼容兩種 session key）
+$sessionMemberId = $_SESSION['member_id'] ?? ($_SESSION['user']['id'] ?? null);
+if (empty($sessionMemberId)) {
+    http_response_code(401);
+    echo json_encode(['error' => '未登入'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+$userId = (int)$sessionMemberId;
 
-// 驗證參數
-if (!$notificationNo) {
+// 讀取 body（支援 JSON 與 form）
+$raw   = file_get_contents('php://input');
+$input = json_decode($raw, true);
+if (!is_array($input)) $input = $_POST;
+
+// 支援兩種寫法：{ notification_no: 12 } 或 { ids: [12,13] }
+$ids = [];
+if (!empty($input['ids']) && is_array($input['ids'])) {
+    $ids = $input['ids'];
+} elseif (!empty($input['notification_no'])) {
+    $ids = [ $input['notification_no'] ];
+}
+
+// 驗證
+$ids = array_values(array_unique(array_map('intval', $ids)));
+$ids = array_filter($ids, fn($v) => $v > 0);
+if (empty($ids)) {
     http_response_code(400);
-    echo json_encode(["error" => "缺少通知編號"], JSON_UNESCAPED_UNICODE);
-    exit;
+    echo json_e_
 }
-
-// 執行更新
-$sql = "
-    UPDATE notification
-    SET NOTIFICATION_STATUS = '已讀'
-    WHERE NOTIFICATION_NO = " . (int)$notificationNo;
-
-$result = $db->query($sql);
-
-if ($result) {
-    echo json_encode(["success" => true], JSON_UNESCAPED_UNICODE);
-} else {
-    http_response_code(500);
-    echo json_encode([
-        "success" => false,
-        "error" => "更新失敗：" . $db->error
-    ], JSON_UNESCAPED_UNICODE);
-}
-?>
