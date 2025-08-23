@@ -30,7 +30,7 @@ try {
     $postNo   = $input["post_no"] ?? null;
     $memberId = $_SESSION['user']["id"] ?? null;
     $content  = $input["comment_content"] ?? "";
-    $parentNo = $input["parent_no"] ?? null;
+    $parentNo = (isset($input["parent_no"]) && is_numeric($input["parent_no"])) ? intval($input["parent_no"]) : null;
 
     // 基本驗證
     if (!$postNo || !$memberId || trim($content) === "") {
@@ -40,12 +40,21 @@ try {
     }
 
     // 寫入資料庫
-    $stmt = $db->prepare("
-         INSERT INTO post_comment 
-            (POST_NO, MEMBER_ID, COMMENT_CONTENT, CREATED_AT, PARENT_NO, LIKE_COUNT)
-        VALUES (?, ?, ?, NOW(), ?, 0)
-    ");
-    $stmt->bind_param("iisi", $postNo, $memberId, $content, $parentNo);
+    if ($parentNo === null) {
+        $stmt = $db->prepare("
+            INSERT INTO post_comment 
+                (POST_NO, MEMBER_ID, COMMENT_CONTENT, CREATED_AT, PARENT_NO, LIKE_COUNT)
+            VALUES (?, ?, ?, NOW(), NULL, 0)
+        ");
+        $stmt->bind_param("iis", $postNo, $memberId, $content);
+    } else {
+        $stmt = $db->prepare("
+            INSERT INTO post_comment 
+                (POST_NO, MEMBER_ID, COMMENT_CONTENT, CREATED_AT, PARENT_NO, LIKE_COUNT)
+            VALUES (?, ?, ?, NOW(), ?, 0)
+        ");
+        $stmt->bind_param("iisi", $postNo, $memberId, $content, $parentNo);
+    }
     $success = $stmt->execute();
 
     if ($success) {
