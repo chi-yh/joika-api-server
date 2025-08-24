@@ -40,9 +40,9 @@ try {
     $stmt = $db->prepare("SELECT 1 FROM comment_like WHERE COMMENT_NO = ? AND COMMENT_TYPE = ? AND MEMBER_ID = ?");
     $stmt->bind_param("isi", $commentNo, $commentType, $memberId);
     $stmt->execute();
-    $result = $stmt->get_result();
+    $stmt->store_result();
 
-    if ($result->num_rows > 0) {
+    if ($stmt->num_rows > 0) {
         // **收回讚** (已經按過讚了)
         // 步驟 1: 從 comment_like 表刪除紀錄
         $stmt = $db->prepare("DELETE FROM comment_like WHERE COMMENT_NO = ? AND COMMENT_TYPE = ? AND MEMBER_ID = ?");
@@ -76,8 +76,11 @@ try {
     $stmt = $db->prepare("SELECT LIKE_COUNT FROM {$commentTable} WHERE {$commentPk} = ?");
     $stmt->bind_param("i", $commentNo);
     $stmt->execute();
-    $likeResult = $stmt->get_result()->fetch_assoc();
-    $currentLikeCount = $likeResult["LIKE_COUNT"] ?? 0;
+    $stmt->bind_result($currentLikeCount);
+    if (!$stmt->fetch()) {
+        $currentLikeCount = 0;
+    }
+    $stmt->close();
 
      echo json_encode([
         "success"    => true,

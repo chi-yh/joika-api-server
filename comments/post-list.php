@@ -55,13 +55,24 @@ if ($postNo > 0) {
     $stmt->bind_param("i", $postNo);
     $stmt->execute();
     
-    $result = $stmt->get_result();
-    
-    // 5. 使用 fetch_all() 讓程式碼更簡潔
-    $comments = $result->fetch_all(MYSQLI_ASSOC);
-    
-    $stmt->close();
-    $mysqli->close();
+ $stmt->execute();
+$stmt->store_result();
+$stmt->bind_result($comment_no, $member_id, $member_nickname, $post_no, $comment_content, $created_at, $parent_no, $comment_status, $like_count);
+while ($stmt->fetch()) {
+    $comments[] = [
+        'POST_COMMENT_NO' => $comment_no,
+        'MEMBER_ID' => $member_id,
+        'MEMBER_NICKNAME' => $member_nickname,
+        'POST_NO' => $post_no,
+        'COMMENT_CONTENT' => $comment_content,
+        'CREATED_AT' => $created_at,
+        'PARENT_NO' => $parent_no,
+        'COMMENT_STATUS' => $comment_status,
+        'LIKE_COUNT' => $like_count
+    ];
+}
+$stmt->close();
+$mysqli->close();
 }
 
 // 6. 回傳最終結果

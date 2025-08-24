@@ -40,16 +40,21 @@ try {
     $stmt->bind_param("i", $postId); 
     
     $stmt->execute();
-    $result = $stmt->get_result();
-    $data = $result->fetch_assoc();
-    
-    if ($data) {
-        echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    $stmt->store_result();
+    $meta = $stmt->result_metadata();
+    $fields = $meta->fetch_fields();
+    $row = [];
+    $bindArray = [];
+    foreach ($fields as $field) {
+        $bindArray[] = &$row[$field->name];
+    }
+    call_user_func_array([$stmt, 'bind_result'], $bindArray);
+    if ($stmt->fetch()) {
+        echo json_encode($row, JSON_UNESCAPED_UNICODE);
     } else {
         http_response_code(404);
         echo json_encode(['error' => '找不到指定的文章'], JSON_UNESCAPED_UNICODE);
     }
-
     $stmt->close();
 
 } catch (mysqli_sql_exception $e) {
