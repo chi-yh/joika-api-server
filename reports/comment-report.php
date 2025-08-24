@@ -42,7 +42,7 @@ $postNo = (int)$row['POST_NO'];
 $descriptionEscaped = $db->real_escape_string($description);
 
 // 寫入 post_report
-$sqlInsert = "INSERT INTO post_report (
+$sql = "INSERT INTO post_report (
     REPORTER_ID,
     POST_NO,
     POST_COMMENT_NO,
@@ -60,7 +60,7 @@ $sqlInsert = "INSERT INTO post_report (
     NOW()
 )";
 
-$result = $db->query($sqlInsert);
+$result = $db->query($sql);
 
 if ($result) {
     echo json_encode(["success" => true], JSON_UNESCAPED_UNICODE);

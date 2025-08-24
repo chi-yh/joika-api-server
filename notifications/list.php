@@ -1,120 +1,88 @@
 <?php
-//  GET
-session_start();
 require_once __DIR__ . '/../config/db.php';
+session_start();
+
 header('Content-Type: application/json; charset=utf-8');
 
-// 只允許 GET
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     http_response_code(405);
-    echo json_encode(['error' => 'METHOD_NOT_ALLOWED'], JSON_UNESCAPED_UNICODE);
+    echo json_encode(['error'=>'METHOD_NOT_ALLOWED'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-// 必須登入
-$sessionMemberId = $_SESSION['member_id'] ?? ($_SESSION['user']['id'] ?? null);
-if (empty($sessionMemberId)) {
+// 登入者
+$userId = (int)($_SESSION['member_id'] ?? ($_SESSION['user']['id'] ?? 0));
+if ($userId <= 0) {
     http_response_code(401);
-    echo json_encode(['error' => 'UNAUTHORIZED'], JSON_UNESCAPED_UNICODE);
+    echo json_encode(['error'=>'UNAUTHORIZED'], JSON_UNESCAPED_UNICODE);
     exit;
 }
-$userId = (int)$sessionMemberId;
 
 $db = db();
+$db->set_charset("utf8mb4");
 
 // 查詢參數
-$type           = isset($_GET['type'])   ? trim(strtolower($_GET['type']))   : 'all';     // system|interact|all
-$status         = isset($_GET['status']) ? trim(strtolower($_GET['status'])) : 'unread';  // unread|read|all
-$since          = isset($_GET['since'])  ? trim($_GET['since'])               : null;      // 'YYYY-MM-DD HH:MM:SS'
-$include_future = !empty($_GET['include_future']);                                         // 1: 包含未到可見時間
-$limit          = isset($_GET['limit'])  ? (int)$_GET['limit']                : 20;
-$offset         = isset($_GET['offset']) ? (int)$_GET['offset']               : 0;
+$status = $_GET['status'] ?? 'all';   
+$type   = $_GET['type']   ?? 'all';      
+$limit  = isset($_GET['limit']) ? (int)$_GET['limit'] : 20;
+$offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
 
-$limit  = max(1, min(100, $limit));
-$offset = max(0, $offset);
+if ($limit <= 0) $limit = 20;
+if ($limit > 100) $limit = 100;
+if ($offset < 0) $offset = 0;
 
-$where = [];
-$where[] = "MEMBER_ID = {$userId}";
+// enum map
+$mapStatus = ['unread'=>'未讀','read'=>'已讀','all'=>null];
+$mapType   = ['system'=>'系統通知','interact'=>'互動通知','all'=>null];
+$statusVal = $mapStatus[strtolower($status)] ?? null;
+$typeVal   = $mapType[strtolower($type)] ?? null;
 
-// 可見時間（
-if (!$include_future) {
-    $where[] = "(AVAILABLE_AT IS NULL OR AVAILABLE_AT <= NOW())";
+// 動態組 where
+$where = "WHERE MEMBER_ID = $userId";
+if ($statusVal) {
+    $where .= " AND NOTIFICATION_STATUS = '".$db->real_escape_string($statusVal)."'";
 }
-
-// 類型
-if ($type === 'system') {
-    $where[] = "NOTIFICATION_TYPE = '系統通知'";
-} elseif ($type === 'interact') {
-    $where[] = "NOTIFICATION_TYPE = '互動通知'";
+if ($typeVal) {
+    $where .= " AND NOTIFICATION_TYPE = '".$db->real_escape_string($typeVal)."'";
 }
+$where .= " AND (AVAILABLE_AT IS NULL OR AVAILABLE_AT <= NOW())";
 
-// 狀態
-if ($type === 'system') {
-    if ($status === 'unread') {
-    $where[] = "NOTIFICATION_STATUS = '未讀'";
-    } elseif ($status === 'read') {
-    $where[] = "NOTIFICATION_STATUS = '已讀'";
-    }
-} elseif ($type === 'all') {
-    if ($status === 'unread') {
-    // 系統通知未讀 + 互動通知一律保留
-    $where[] = "( (NOTIFICATION_TYPE='系統通知' AND NOTIFICATION_STATUS='未讀') OR NOTIFICATION_TYPE='互動通知' )";
-    } elseif ($status === 'read') {
-    // 系統通知已讀 + 互動通知一律保留
-    $where[] = "( (NOTIFICATION_TYPE='系統通知' AND NOTIFICATION_STATUS='已讀') OR NOTIFICATION_TYPE='互動通知' )";
-    }
-}
+// 查詢資料
+$sql = "SELECT 
+            NOTIFICATION_NO   AS notification_no,
+            NOTIFICATION_TITLE AS title,
+            NOTIFICATION_CONTENT AS content,
+            NOTIFICATION_STATUS  AS status,
+            NOTIFICATION_TYPE    AS type,
+            CREATED_AT           AS created_at,
+            AVAILABLE_AT         AS available_at
+        FROM notification
+        $where
+        ORDER BY CREATED_AT DESC, NOTIFICATION_NO DESC
+        LIMIT $limit OFFSET $offset";
 
-
-// 起始時間
-if ($since !== null && $since !== '') {
-    $sinceEsc = $db->real_escape_string($since);
-    $where[]  = "CREATED_AT >= '{$sinceEsc}'";
-}
-
-$whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
-
-// ----------------------
-// 計數
-// ----------------------
-$sqlCount = "SELECT COUNT(*) AS total FROM notification {$whereSql}";
-$rsCount  = $db->query($sqlCount);
-$total    = (int)($rsCount->fetch_assoc()['total'] ?? 0);
-
-// ----------------------
-// 列表（互動通知的 status 置為 NULL；排序僅對系統通知做未讀優先）
-// ----------------------
-$sql = "
-    SELECT
-        n.NOTIFICATION_NO         AS id,
-        n.NOTIFICATION_TITLE      AS title,
-        n.NOTIFICATION_CONTENT    AS content,
-        n.NOTIFICATION_TYPE       AS type,
-        n.NOTIFICATION_STATUS     AS status,
-        n.CREATED_AT              AS created_at,
-        n.AVAILABLE_AT            AS available_at,
-        n.PROCESSED_BY            AS processed_by,
-        p.POST_TITLE              AS post_title   
-    FROM notification n
-    LEFT JOIN post p ON n.POST_NO = p.POST_NO  -- 假設通知表有存 POST_NO
-    $whereSql
-    ORDER BY n.CREATED_AT DESC, n.NOTIFICATION_NO DESC
-    LIMIT $limit OFFSET $offset
-";
 $result = $db->query($sql);
-$items = $result->fetch_all(MYSQLI_ASSOC);
+$data   = $result ? $result->fetch_all(MYSQLI_ASSOC) : [];
 
-// 轉 boolean
-foreach ($items as &$it) {
-    $it['visible'] = $it['visible'] == 1;
-}
+// 總數
+$sqlCount = "SELECT COUNT(*) AS cnt FROM notification $where";
+$countRes = $db->query($sqlCount);
+$total    = $countRes ? (int)$countRes->fetch_assoc()['cnt'] : 0;
 
-$db->close();
+// 未讀數
+$sqlUnread = "SELECT COUNT(*) AS cnt FROM notification 
+                WHERE MEMBER_ID = $userId 
+                AND NOTIFICATION_STATUS='未讀'
+                AND (AVAILABLE_AT IS NULL OR AVAILABLE_AT <= NOW())";
+$unreadRes = $db->query($sqlUnread);
+$unreadCnt = $unreadRes ? (int)$unreadRes->fetch_assoc()['cnt'] : 0;
 
-// 輸出
 echo json_encode([
-    'total'  => $total,
-    'limit'  => $limit,
-    'offset' => $offset,
-    'items'  => $items
+    'data' => $data,
+    'meta' => [
+        'limit'        => $limit,
+        'offset'       => $offset,
+        'total'        => $total,
+        'unread_count' => $unreadCnt
+    ]
 ], JSON_UNESCAPED_UNICODE);
