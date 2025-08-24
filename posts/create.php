@@ -6,8 +6,8 @@ header('Content-Type: application/json');
 
 $db = db();
 
-$UPLOAD_DIR_ABS  = __DIR__ . '/../upload/article-img'; // 伺服器實體路徑
-$PUBLIC_IMG_BASE = 'upload/article-img';               // 前端可讀路徑（相對或完整 URL）
+$UPLOAD_DIR_ABS  = __DIR__ . '/../upload/article-img'; 
+$PUBLIC_IMG_BASE = 'upload/article-img';               
 
 // 1) 僅允許 POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -46,12 +46,12 @@ $category_no = (int)$_POST['category_no'];
 $title_raw   = (string)$_POST['post_title'];
 $html_raw    = (string)$_POST['post_content'];
 
-// 5) 內文只存純文字（保留基本換行感）
+// 5) 內文只存純文字
 $content_for_plain = preg_replace('#<(br|BR)\s*/?>#', "\n", $html_raw);
 $content_for_plain = preg_replace('#</p\s*>#i', "\n", $content_for_plain);
 $plain_text        = trim(html_entity_decode(strip_tags($content_for_plain), ENT_QUOTES, 'UTF-8'));
 
-// 6) 處理首圖（來自額外 input: POST_IMG）
+// 6) 處理首圖
 $post_img_path = null;
 if (isset($_FILES['post_img']) && $_FILES['post_img']['error'] === UPLOAD_ERR_OK) {
     

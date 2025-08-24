@@ -1,13 +1,4 @@
 <?php
-// notifications/mark-read.php
-// 將一筆或多筆通知標記為「已讀」
-// 介面：POST JSON { "notification_no": 12 } 或 { "ids": [12,13,18] }
-// （可選）POST JSON { "all": true } 代表把目前使用者的「所有未讀」標為已讀
-
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
-
 header('Content-Type: application/json; charset=utf-8');
 date_default_timezone_set('Asia/Taipei');
 

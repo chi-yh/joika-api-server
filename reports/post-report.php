@@ -43,7 +43,7 @@ $report_description = trim((string)($input['report_description'] ?? ''));
 
 $desc_esc = $db->real_escape_string($report_description);
 
-// 5) 必要欄位檢查（哪個缺就回報）
+// 5) 必要欄位檢查
 $missing = [];
 if ($post_no <= 0)          $missing[] = 'post_no';
 if ($report_reason_no <= 0) $missing[] = 'report_reason_no';
