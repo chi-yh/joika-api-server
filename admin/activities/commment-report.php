@@ -10,7 +10,8 @@
                 acr.*,
                 rr.REASON,
                 m.MEMBER_NAME AS REPORTER_NAME,
-                s.STAFF_NAME AS ADMIN_NAME
+                s.STAFF_NAME AS ADMIN_NAME,
+                ac.COMMENT_CONTENT AS COMMENT_CONTENT
             FROM 
                 activity_comment_report acr
             LEFT JOIN 
@@ -22,6 +23,9 @@
             LEFT JOIN 
                 staff s
                 ON acr.STAFF_ID = s.STAFF_ID
+            LEFT JOIN
+                activity_comment ac
+                ON acr.ACTIVITY_COMMENT_NO = ac.ACTIVITY_COMMENT_NO
             ORDER BY acr.ACTIVITY_COMMENT_REPORT_ID ASC;";
     $result = $db->query($sql);
 
