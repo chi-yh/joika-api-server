@@ -12,28 +12,31 @@
           exit();
         }
 
-        $sql = "SELECT * FROM staff WHERE staff_username = ? AND staff_password = ?";
+        $sql = "SELECT STAFF_NAME FROM staff WHERE staff_username = ? AND staff_password = ?";
         
         $stmt = $mysqli->prepare($sql);
-        // 兩個s，表示兩個都是字串string
         $stmt->bind_param("ss", $_POST["username"], $_POST["password"]);
         $stmt->execute();
-        $result = $stmt->get_result();
-        $isOK = $result->fetch_all(MYSQLI_ASSOC);
 
-        if ($isOK) {
-          // 登入成功 → 回傳 STAFF_NAME
-          echo json_encode([
-            "success" => true,
-            "staff_name" => $isOK[0]["STAFF_NAME"]
-          ]);
+        // 用 store_result() + bind_result()
+        $stmt->store_result();
+        $stmt->bind_result($staff_name);
+
+        if ($stmt->fetch()) {
+            // 登入成功 → 回傳 STAFF_NAME
+            echo json_encode([
+                "success" => true,
+                "staff_name" => $staff_name
+            ]);
         } else {
-          echo json_encode([
-            "success" => false,
-            "staff_name" => null
-          ]);
+            echo json_encode([
+                "success" => false,
+                "staff_name" => null
+            ]);
         }
-        
+
+        $stmt->close();
+        $mysqli->close();
         exit();
     }
 ?>
