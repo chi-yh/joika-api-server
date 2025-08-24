@@ -1,7 +1,6 @@
 <?php
-
-session_start();
 header('Content-Type: application/json; charset=utf-8');
+require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/db.php';
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
@@ -24,43 +23,6 @@ try {
     $mysqli = db();
 
     if ($type === 'post') {
-<<<<<<< HEAD
-        // 查詢 post_report 是否有通過的檢舉
-        $stmt = $mysqli->prepare("SELECT REPORT_STATUS FROM post_report WHERE POST_COMMENT_NO = ? ORDER BY HANDLE_AT DESC LIMIT 1");
-        $stmt->bind_param("i", $commentNo);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $report = $result->fetch_assoc();
-        $stmt->close();
-
-        if (!$report || $report['REPORT_STATUS'] !== '通過') {
-            echo json_encode(["success" => false, "message" => "檢舉未通過，無法隱藏留言"]);
-            $mysqli->close();
-            exit;
-        }
-
-        // 隱藏文章留言
-        $stmt = $mysqli->prepare("UPDATE post_comment SET COMMENT_STATUS = '隱藏' WHERE POST_COMMENT_NO = ?");
-        $stmt->bind_param("i", $commentNo);
-    } else {
-        // 查詢 activity_comment_report 是否有通過的檢舉
-        $stmt = $mysqli->prepare("SELECT REPORT_STATUS FROM activity_comment_report WHERE ACTIVITY_COMMENT_NO = ? ORDER BY HANDLE_AT DESC LIMIT 1");
-        $stmt->bind_param("i", $commentNo);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $report = $result->fetch_assoc();
-        $stmt->close();
-
-        if (!$report || $report['REPORT_STATUS'] !== '通過') {
-            echo json_encode(["success" => false, "message" => "檢舉未通過，無法隱藏留言"]);
-            $mysqli->close();
-            exit;
-        }
-
-        // 隱藏活動留言
-        $stmt = $mysqli->prepare("UPDATE activity_comment SET COMMENT_STATUS = '隱藏' WHERE ACTIVITY_COMMENT_NO = ?");
-        $stmt->bind_param("i", $commentNo);
-=======
         // 查詢 post_report 是否有最新的檢舉狀態
         $stmt = $mysqli->prepare("SELECT REPORT_STATUS FROM post_report WHERE POST_COMMENT_NO = ? ORDER BY HANDLE_AT DESC LIMIT 1");
         $stmt->bind_param("i", $commentNo);
@@ -125,7 +87,6 @@ try {
         } else {
             $response["message"] = "檢舉未通過，無法隱藏留言";
         }
->>>>>>> feature/zz
     }
 
     $mysqli->close();
