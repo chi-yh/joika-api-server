@@ -56,11 +56,21 @@ if ($post_no <= 0) {
 }
 
 /** 取文章，驗證存在與擁有者 */
+
 $stmt = $db->prepare("SELECT POST_NO, MEMBER_ID, POST_IMG, POST_STATUS FROM post WHERE POST_NO=? LIMIT 1");
 $stmt->bind_param('i', $post_no);
 $stmt->execute();
-$res = $stmt->get_result();
-$row = $res->fetch_assoc();
+$stmt->bind_result($f_post_no, $f_member_id, $f_post_img, $f_post_status);
+if ($stmt->fetch()) {
+    $row = [
+        'POST_NO' => $f_post_no,
+        'MEMBER_ID' => $f_member_id,
+        'POST_IMG' => $f_post_img,
+        'POST_STATUS' => $f_post_status
+    ];
+} else {
+    $row = false;
+}
 $stmt->close();
 
 if (!$row) {

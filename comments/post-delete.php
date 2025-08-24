@@ -24,36 +24,37 @@ try {
 
     if ($type === 'post') {
         // 查詢 post_report 是否有通過的檢舉
-        $stmt = $mysqli->prepare("SELECT REPORT_STATUS FROM post_report WHERE POST_COMMENT_NO = ? ORDER BY HANDLE_AT DESC LIMIT 1");
-        $stmt->bind_param("i", $commentNo);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $report = $result->fetch_assoc();
-        $stmt->close();
+            $stmt = $mysqli->prepare("SELECT REPORT_STATUS FROM post_report WHERE POST_COMMENT_NO = ? ORDER BY HANDLE_AT DESC LIMIT 1");
+            $stmt->bind_param("i", $commentNo);
+            $stmt->execute();
+            $stmt->bind_result($report_status);
+            $hasRow = $stmt->fetch();
+            $stmt->close();
 
-        if (!$report || $report['REPORT_STATUS'] !== '通過') {
-            echo json_encode(["success" => false, "message" => "檢舉未通過，無法隱藏留言"]);
-            $mysqli->close();
-            exit;
-        }
+            if (!$hasRow || $report_status !== '通過') {
+                echo json_encode(["success" => false, "message" => "檢舉未通過，無法隱藏留言"]);
+                $mysqli->close();
+                exit;
+            }
 
         // 隱藏文章留言
         $stmt = $mysqli->prepare("UPDATE post_comment SET COMMENT_STATUS = '隱藏' WHERE POST_COMMENT_NO = ?");
         $stmt->bind_param("i", $commentNo);
     } else {
         // 查詢 activity_comment_report 是否有通過的檢舉
-        $stmt = $mysqli->prepare("SELECT REPORT_STATUS FROM activity_comment_report WHERE ACTIVITY_COMMENT_NO = ? ORDER BY HANDLE_AT DESC LIMIT 1");
-        $stmt->bind_param("i", $commentNo);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        $report = $result->fetch_assoc();
-        $stmt->close();
 
-        if (!$report || $report['REPORT_STATUS'] !== '通過') {
-            echo json_encode(["success" => false, "message" => "檢舉未通過，無法隱藏留言"]);
-            $mysqli->close();
-            exit;
-        }
+            $stmt = $mysqli->prepare("SELECT REPORT_STATUS FROM activity_comment_report WHERE ACTIVITY_COMMENT_NO = ? ORDER BY HANDLE_AT DESC LIMIT 1");
+            $stmt->bind_param("i", $commentNo);
+            $stmt->execute();
+            $stmt->bind_result($report_status);
+            $hasRow = $stmt->fetch();
+            $stmt->close();
+
+            if (!$hasRow || $report_status !== '通過') {
+                echo json_encode(["success" => false, "message" => "檢舉未通過，無法隱藏留言"]);
+                $mysqli->close();
+                exit;
+            }
 
         // 隱藏活動留言
         $stmt = $mysqli->prepare("UPDATE activity_comment SET COMMENT_STATUS = '隱藏' WHERE ACTIVITY_COMMENT_NO = ?");
