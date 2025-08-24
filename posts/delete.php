@@ -40,7 +40,6 @@ if ($post_no <= 0) {
     exit;
 }
 
-<<<<<<< HEAD
 /** 取文章 */
 $sql = "SELECT POST_NO, MEMBER_ID, POST_IMG, POST_STATUS 
         FROM post 
@@ -48,25 +47,6 @@ $sql = "SELECT POST_NO, MEMBER_ID, POST_IMG, POST_STATUS
         LIMIT 1";
 $result = $db->query($sql);
 $row = $result ? $result->fetch_assoc() : null;
-=======
-/** 取文章，驗證存在與擁有者 */
-
-$stmt = $db->prepare("SELECT POST_NO, MEMBER_ID, POST_IMG, POST_STATUS FROM post WHERE POST_NO=? LIMIT 1");
-$stmt->bind_param('i', $post_no);
-$stmt->execute();
-$stmt->bind_result($f_post_no, $f_member_id, $f_post_img, $f_post_status);
-if ($stmt->fetch()) {
-    $row = [
-        'POST_NO' => $f_post_no,
-        'MEMBER_ID' => $f_member_id,
-        'POST_IMG' => $f_post_img,
-        'POST_STATUS' => $f_post_status
-    ];
-} else {
-    $row = false;
-}
-$stmt->close();
->>>>>>> feature/zz
 
 if (!$row) {
     http_response_code(404);
