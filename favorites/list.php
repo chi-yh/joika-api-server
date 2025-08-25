@@ -24,50 +24,11 @@ $memberId = (int)$memberId; // 確保為整數
 // === 結束：取得並驗證參數 ===
 
 try {
-<<<<<<< HEAD
-    // [堅持] 為了絕對的安全性，處理使用者輸入時必須使用預備語句
-    // $sql = "SELECT * FROM favorite_activities WHERE member_id = ?";
-    // 修改成 (請換成您的真實欄位)
-    $sql = "SELECT MEMBER_ID, ACTIVITY_NO FROM favorite_activities WHERE member_id = ?";
-
-    $stmt = $db->prepare($sql);
-    $stmt->bind_param("i", $memberId);
-    $stmt->execute();
-    // $result = $stmt->get_result();
-    // $data = $result->fetch_all(MYSQLI_ASSOC);
-
-    // 在 $stmt->execute(); 的下一行，加上這些新程式碼
-
-    // 1. 先把所有查詢結果從資料庫抓到 PHP 的記憶體裡
-    $stmt->store_result();
-
-    // 2. 準備好「空的變數」，用來接收每一筆資料的欄位值
-    //    變數的順序和數量，必須和步驟一的 SELECT 欄位完全對應！
-    //    FAVORITE_NO -> $fav_no
-    //    MEMBER_ID   -> $mem_id
-    //    ACTIVITY_NO -> $act_no
-    $stmt->bind_result($mem_id, $act_no);
-
-    // 3. 準備一個空的陣列，就像一個空箱子，準備裝整理好的資料
-    $data = [];
-
-    // 4. 啟動一個迴圈，就像工廠的生產線
-    //    $stmt->fetch() 會一筆一筆地把資料從記憶體拿出來
-    while ($stmt->fetch()) {
-        // 5. 在迴圈裡，手動把每一筆資料，組裝成我們想要的格式
-        //    再放進 $data 這個箱子裡
-        $data[] = [
-            'MEMBER_ID' => $mem_id,
-            'ACTIVITY_NO' => $act_no
-        ];
-    }
-=======
     // 使用預備語句
     $sql = "SELECT * FROM favorite_activities WHERE member_id = ?";
     $stmt = $db->prepare($sql);
     $stmt->bind_param("i", $memberId);
     $stmt->execute();
->>>>>>> dev
 
     // ====== 無 mysqlnd 通用取數法：動態綁定所有欄位 ======
     $meta = $stmt->result_metadata();
