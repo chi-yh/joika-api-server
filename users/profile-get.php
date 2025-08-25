@@ -138,8 +138,8 @@ $hostCountTotal   = isset($user['HOST_COUNT_TOTAL'])   ? (int)$user['HOST_COUNT_
 $joinerScoreTotal = isset($user['JOINER_SCORE_TOTAL']) ? (int)$user['JOINER_SCORE_TOTAL'] : 0;
 $joinerCountTotal = isset($user['JOINER_COUNT_TOTAL']) ? (int)$user['JOINER_COUNT_TOTAL'] : 0;
 
-$user['hostAvg']   = ($hostCountTotal   > 0) ? round($hostScoreTotal   / $hostCountTotal,   0) : null;
-$user['joinerAvg'] = ($joinerCountTotal > 0) ? round($joinerScoreTotal / $joinerCountTotal, 0) : null;
+$user['hostAvg']   = ($hostCountTotal   > 0) ? round($hostScoreTotal   / $hostCountTotal,   1) : null;
+$user['joinerAvg'] = ($joinerCountTotal > 0) ? round($joinerScoreTotal / $joinerCountTotal, 1) : null;
 
 // ---- 回傳 ----
 http_response_code(200);
