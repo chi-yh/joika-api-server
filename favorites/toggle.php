@@ -36,10 +36,16 @@ try {
     $stmtCheck = $db->prepare($sqlCheck);
     $stmtCheck->bind_param("ii", $memberId, $activityNo);
     $stmtCheck->execute();
-    $resultCheck = $stmtCheck->get_result();
+    // $resultCheck = $stmtCheck->get_result();
+
+    // --- 換成這一行 ---
+    $stmtCheck->store_result();
 
     // [保留] 步驟 2: 根據是否存在，決定 SQL 操作 (這是您原有的核心邏輯)
-    if ($resultCheck->num_rows > 0) {
+    // if ($resultCheck->num_rows > 0) {
+
+        // --- 換成這一行 ---
+    if ($stmtCheck->num_rows > 0) {
         // 已收藏，準備執行刪除
         $sql = "DELETE FROM favorite_activities WHERE MEMBER_ID = ? AND ACTIVITY_NO = ?";
     } else {

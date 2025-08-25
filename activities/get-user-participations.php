@@ -1,5 +1,5 @@
 <?php
-// === API: 整合版本 ===
+// ===get-user-participations.php API: 整合版本 ===
 
 header('Content-Type: application/json; charset=utf-8');
 header("Access-Control-Allow-Origin: *");
@@ -34,26 +34,32 @@ if ($action === 'check_favorite') {
     }
 
     // ⚠️ 請將 favorite_activities, activity_no, member_id 替換為您的真實名稱
-    $sql = "SELECT COUNT(*) as count FROM favorite_activities WHERE activity_no = ? AND member_id = ?";
+    $sql = "SELECT COUNT(*) FROM favorite_activities WHERE activity_no = ? AND member_id = ?";
     $stmt = $db->prepare($sql);
     $stmt->bind_param("si", $activityNo, $memberId);
     $stmt->execute();
-    $result = $stmt->get_result();
-    $row = $result->fetch_assoc();
     
-    echo json_encode(["isFavorite" => (int)$row['count'] > 0]);
+    // 【修改點 1】: 使用 bind_result 和 fetch 來獲取單一結果
+    $stmt->bind_result($count); // 準備一個變數 $count 來接收 COUNT(*) 的結果
+    $stmt->fetch(); // 執行抓取，將結果填入 $count
+    
+    echo json_encode(["isFavorite" => (int)$count > 0]);
 
 // === 流程二：獲取所有已參加的活動列表 (預設行為) ===
 } else {
+    // ⚠️ 請將 PARTICIPANT, ACTIVITY_NO, PARTICIPANT_ID 替換為您的真實名稱
     $sql = "SELECT ACTIVITY_NO FROM PARTICIPANT WHERE PARTICIPANT_ID = ?";
     $stmt = $db->prepare($sql);
     $stmt->bind_param("i", $memberId);
     $stmt->execute();
-    $result = $stmt->get_result();
     
+    // 【修改點 2】: 使用 bind_result 和 while 迴圈來獲取多筆結果
+    $stmt->store_result(); // 先將所有結果儲存到記憶體
+    $stmt->bind_result($activity_no); // 準備一個變數 $activity_no 來接收 ACTIVITY_NO 的值
+
     $activityNos = [];
-    while ($row = $result->fetch_assoc()) {
-        $activityNos[] = $row['ACTIVITY_NO'];
+    while ($stmt->fetch()) { // 迴圈一筆一筆地抓取
+        $activityNos[] = $activity_no; // 將抓到的值放入陣列
     }
     
     echo json_encode($activityNos);
