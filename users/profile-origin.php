@@ -55,10 +55,17 @@
         "occupation" => $occupation,
         "interests" => $interests ? explode(",", $interests) : []
       ];
-      echo json_encode($data, JSON_UNESCAPED_UNICODE);
+      echo json_encode([
+        "success" => true,
+        "data" => $data
+      ], JSON_UNESCAPED_UNICODE);
     } else {
-      http_response_code(404);
-    echo json_encode(["error" => "找不到會員資料"], JSON_UNESCAPED_UNICODE);
+      echo json_encode([
+        "success" => false,
+        "errors" => [
+          "member" => "找不到會員資料"
+        ]
+      ], JSON_UNESCAPED_UNICODE);
     }
 
     $stmt->close();
