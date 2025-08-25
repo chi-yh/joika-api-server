@@ -235,6 +235,7 @@ $sql = "SELECT
         LEFT JOIN city   ci ON ci.CITY_NO      = m.MEMBER_CITY
         LEFT JOIN occupation o ON o.OCCUPATION_NO = m.MEMBER_OCCUPATION
         WHERE p.ACTIVITY_NO = ?
+         AND p.JOINER_CANCEL_AT IS NULL
         ORDER BY p.CREATED_AT DESC
         ";
 $stmt = $db->prepare($sql);
@@ -327,7 +328,7 @@ $out = [
   'activity' => $activity,
   'hoster'   => $hoster,
   'participants' => [
-    'count'  => (int)$act['CURRENT_PARTICIPANT'],
+    'count'  => count($participantsPreview),
     'preview'=> $participantsPreview,
   ],
   'ratings' => $ratings,
