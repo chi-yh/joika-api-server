@@ -11,7 +11,8 @@
                 rr.REASON,
                 m.MEMBER_NAME AS REPORTER_NAME,
                 s.STAFF_NAME AS ADMIN_NAME,
-                pc.COMMENT_CONTENT AS COMMENT_CONTENT
+                pc.COMMENT_CONTENT AS COMMENT_CONTENT,
+                p.POST_TITLE
             FROM 
                 post_report pr
             LEFT JOIN 
@@ -26,7 +27,10 @@
             LEFT JOIN
                 post_comment pc
                 ON pr.POST_COMMENT_NO = pc.POST_COMMENT_NO
-            ORDER BY pr.POST_REPORT_NO ASC";
+            LEFT JOIN
+                post p
+                ON pr.POST_NO = p.POST_NO
+            ORDER BY pr.POST_REPORT_NO ASC;";
     $result = $db->query($sql);
 
     $data = $result->fetch_all(MYSQLI_ASSOC);
