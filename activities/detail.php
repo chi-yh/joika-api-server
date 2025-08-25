@@ -215,7 +215,7 @@ try {
   // ignore
 }
 
-/* 3) 參團者 preview（最多 6 筆） */
+/* 3) 參團者 preview */
 $participantsPreview = [];
 $sql = "SELECT 
           p.PARTICIPANT_ID                 AS MEMBER_ID,

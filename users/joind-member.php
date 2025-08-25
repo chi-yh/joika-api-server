@@ -28,18 +28,18 @@ if ($status === 'pending') {
 
 $sql = "
 (
-  SELECT 
-    a.HOST_MEMBER_ID          AS member_id,
-    'host'                    AS role,
-    m.MEMBER_NICKNAME,
-    m.MEMBER_AVATAR,
-    m.HOST_SCORE_TOTAL,
-    m.HOST_COUNT_TOTAL,
-    m.JOINER_SCORE_TOTAL,
-    m.JOINER_COUNT_TOTAL
-  FROM ACTIVITY a
-  JOIN MEMBER m ON m.MEMBER_ID = a.HOST_MEMBER_ID
-  WHERE a.ACTIVITY_NO = ?
+    SELECT 
+        a.HOST_MEMBER_ID          AS member_id,
+        'host'                    AS role,
+        m.MEMBER_NICKNAME,
+        m.MEMBER_AVATAR,
+        m.HOST_SCORE_TOTAL,
+        m.HOST_COUNT_TOTAL,
+        m.JOINER_SCORE_TOTAL,
+        m.JOINER_COUNT_TOTAL
+    FROM ACTIVITY a
+    JOIN MEMBER m ON m.MEMBER_ID = a.HOST_MEMBER_ID
+    WHERE a.ACTIVITY_NO = ?
 )
 UNION ALL
 (
