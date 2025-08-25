@@ -21,7 +21,19 @@ try {
     // 取得連線（可能丟出例外）
     $mysqli = db();
 
-    $sql = "SELECT * FROM `post` WHERE `POST_STATUS` = '顯示' ORDER BY `CREATED_AT` DESC";
+    $sql = "
+        SELECT *
+        FROM `post` p
+        WHERE p.`POST_STATUS` = '顯示'
+        AND NOT EXISTS (
+            SELECT 1
+            FROM `post_report` r
+            WHERE r.`POST_NO` = p.`POST_NO`
+            AND r.`REPORT_STATUS` = '通過'
+        )
+        ORDER BY p.`CREATED_AT` DESC
+    ";
+
 
 
     // 執行查詢

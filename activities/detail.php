@@ -1,28 +1,21 @@
 <?php
-    /*
-    主要任務：根據活動 ID，查詢資料庫並回傳該活動的完整資訊。
-    使用情境：
-    使用者在活動列表點進某個活動的詳情頁。
-    前端需要顯示活動的時間、地點、參加人數、主辦者資訊、收藏狀態等。
-    有時會附帶該活動的留言列表、照片等附加資料。
-    */ 
-
-    header('Content-Type: application/json; charset=utf-8');
+header('Content-Type: application/json; charset=utf-8');
 date_default_timezone_set('Asia/Taipei');
 
 require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/db.php';
 session_start();
 
+/* 工具 */
 function json($d,$c=200){ http_response_code($c); echo json_encode($d,JSON_UNESCAPED_UNICODE); exit; }
-function me_id() {
-  return isset($_SESSION['user']['id']) ? (int)$_SESSION['user']['id'] : null;
-}
+function me_id(){ return isset($_SESSION['user']['id']) ? (int)$_SESSION['user']['id'] : null; }
+
 $actNo = (int)($_GET['id'] ?? 0);
 if(!$actNo) json(['error'=>'缺少 id'], 400);
+
 $db = db();
 
-/* 1) 取活動 + 分類 + 主揪 */
+/* 1) 取活動 + 分類 + 主揪（改 bind_result + fetch）*/
 $sql = "SELECT 
           a.ACTIVITY_NO,
           a.ACTIVITY_NAME,
@@ -40,19 +33,33 @@ $sql = "SELECT
           a.ACTIVITY_DESCRIPTION,
           a.ACTIVITY_STATUS,
           a.HOSTER_CANCELLED_AT,
-          a.HOST_MEMBER_ID,
+          a.HOST_MEMBER_ID,           
           a.CREATED_AT,
           a.STAFF_ID,
           a.LOCATION,
           a.HOSTER_CANCEL_REASON_NO,
           a.HOSTER_CANCEL_DESCRIPTION,
           c.CATEGORY_NAME,
-          m.MEMBER_ID          AS HOST_MEMBER_ID,
+          m.MEMBER_ID          AS HOST_MEMBER_ID,   
           m.MEMBER_NICKNAME    AS HOST_NICKNAME,
           m.MEMBER_AVATAR      AS HOST_AVATAR,
           ci.CITY_NAME         AS HOST_CITY_NAME,
           o.OCCUPATION         AS HOST_OCCUPATION,
-          TIMESTAMPDIFF(YEAR, m.MEMBER_BIRTHDATE, CURDATE()) AS HOST_AGE
+          TIMESTAMPDIFF(YEAR, m.MEMBER_BIRTHDATE, CURDATE()) AS HOST_AGE,
+
+          ROUND(CASE 
+          WHEN m.HOST_COUNT_TOTAL > 0 
+          THEN m.HOST_SCORE_TOTAL / m.HOST_COUNT_TOTAL 
+          ELSE 0 
+        END, 1) AS RATING_HOST,
+  m.HOST_COUNT_TOTAL AS REVIEWS_HOST,
+  ROUND(CASE 
+          WHEN m.JOINER_COUNT_TOTAL > 0 
+          THEN m.JOINER_SCORE_TOTAL / m.JOINER_COUNT_TOTAL 
+          ELSE 0 
+        END, 1) AS RATING_JOINER,
+  m.JOINER_COUNT_TOTAL AS REVIEWS_JOINER
+
         FROM activity a
         LEFT JOIN category   c  ON c.CATEGORY_NO      = a.CATEGORY_NO
         LEFT JOIN member     m  ON m.MEMBER_ID        = a.HOST_MEMBER_ID
@@ -62,37 +69,124 @@ $sql = "SELECT
 $stmt = $db->prepare($sql);
 $stmt->bind_param("i", $actNo);
 $stmt->execute();
-$act = $stmt->get_result()->fetch_assoc();
+
+$stmt->bind_result(
+  $A_ACTIVITY_NO,
+  $A_ACTIVITY_NAME,
+  $A_CATEGORY_NO,
+  $A_ACTIVITY_IMG,
+  $A_REG_START,
+  $A_REG_DEADLINE,
+  $A_START,
+  $A_END,
+  $A_MIN,
+  $A_MAX,
+  $A_CURR,
+  $A_FEE_NOTES,
+  $A_LIMITATION,
+  $A_DESC,
+  $A_STATUS,
+  $A_HOSTER_CANCELLED_AT,
+  $A_HOST_MEMBER_ID,             
+  $A_CREATED_AT,
+  $A_STAFF_ID,
+  $A_LOCATION,
+  $A_HOSTER_CANCEL_REASON_NO,
+  $A_HOSTER_CANCEL_DESCRIPTION,
+  $C_CATEGORY_NAME,
+  $M_HOST_MEMBER_ID,             
+  $M_HOST_NICKNAME,
+  $M_HOST_AVATAR,
+  $M_HOST_CITY_NAME,
+  $M_HOST_OCCUPATION,
+  $M_HOST_AGE,
+  $M_RATING_HOST,
+  $M_REVIEWS_HOST,
+  $M_RATING_JOINER,
+  $M_REVIEWS_JOINER
+);
+
+$act = null;
+if ($stmt->fetch()) {
+  // 依你原本行為，HOST_MEMBER_ID 用會員表的那個（$M_HOST_MEMBER_ID）
+  $act = [
+    'ACTIVITY_NO'             => $A_ACTIVITY_NO,
+    'ACTIVITY_NAME'           => $A_ACTIVITY_NAME,
+    'CATEGORY_NO'             => $A_CATEGORY_NO,
+    'ACTIVITY_IMG'            => $A_ACTIVITY_IMG,
+    'REGISTRATION_START_DATE' => $A_REG_START,
+    'REGISTRATION_DEADLINE'   => $A_REG_DEADLINE,
+    'ACTIVITY_START_DATE'     => $A_START,
+    'ACTIVITY_END_DATE'       => $A_END,
+    'MIN_PARTICIPANT'         => $A_MIN,
+    'MAX_PARTICIPANT'         => $A_MAX,
+    'CURRENT_PARTICIPANT'     => $A_CURR,
+    'FEE_NOTES'               => $A_FEE_NOTES,
+    'PARTICIPANT_LIMITATION'  => $A_LIMITATION,
+    'ACTIVITY_DESCRIPTION'    => $A_DESC,
+    'ACTIVITY_STATUS'         => $A_STATUS,
+    'HOSTER_CANCELLED_AT'     => $A_HOSTER_CANCELLED_AT,
+    'HOST_MEMBER_ID'          => $M_HOST_MEMBER_ID, // 覆蓋為 member 表 id（與你原本 fetch_assoc 結果一致）
+    'CREATED_AT'              => $A_CREATED_AT,
+    'STAFF_ID'                => $A_STAFF_ID,
+    'LOCATION'                => $A_LOCATION,
+    'HOSTER_CANCEL_REASON_NO' => $A_HOSTER_CANCEL_REASON_NO,
+    'HOSTER_CANCEL_DESCRIPTION'=> $A_HOSTER_CANCEL_DESCRIPTION,
+    'CATEGORY_NAME'           => $C_CATEGORY_NAME,
+    'HOST_NICKNAME'           => $M_HOST_NICKNAME,
+    'HOST_AVATAR'             => $M_HOST_AVATAR,
+    'HOST_CITY_NAME'          => $M_HOST_CITY_NAME,
+    'HOST_OCCUPATION'         => $M_HOST_OCCUPATION,
+    'HOST_AGE'                => $M_HOST_AGE,
+    // 若你之後要用活動表原始 host id，可另外加：
+    '_A_HOST_MEMBER_ID'       => $A_HOST_MEMBER_ID,
+    'RATING_HOST'             => $M_RATING_HOST,
+    'REVIEWS_HOST'            => $M_REVIEWS_HOST,
+    'RATING_JOINER'           => $M_RATING_JOINER,
+    'REVIEWS_JOINER'          => $M_REVIEWS_JOINER,
+  ];
+}
 $stmt->close();
 
 if (!$act) json(['error'=>'活動不存在'], 404);
 
-// 組 hoster 區塊（前端目前沒用到也無妨）
+/* hoster 區塊 */
 $hoster = [
   'MEMBER_ID'        => isset($act['HOST_MEMBER_ID']) ? (int)$act['HOST_MEMBER_ID'] : null,
-  'MEMBER_NICKNAME'  => $act['HOST_NICKNAME'] ?? null,  
-  'MEMBER_AVATAR'    => $act['HOST_AVATAR'] ?? null,     
+  'MEMBER_NICKNAME'  => $act['HOST_NICKNAME'] ?? null,
+  'MEMBER_AVATAR'    => $act['HOST_AVATAR'] ?? null,
   'CITY_NAME'        => $act['HOST_CITY_NAME'] ?? null,
   'AGE'              => isset($act['HOST_AGE']) ? (int)$act['HOST_AGE'] : null,
   'OCCUPATION'       => $act['HOST_OCCUPATION'] ?? null,
   'NICKNAME'         => $act['HOST_NICKNAME'] ?? null,
   'AVATAR'           => $act['HOST_AVATAR'] ?? null,
+  'RATING_HOST'      => isset($act['RATING_HOST'])     ? (float)$act['RATING_HOST']     : 0.0,
+  'REVIEWS_HOST'     => isset($act['REVIEWS_HOST'])    ? (int)$act['REVIEWS_HOST']      : 0,
+  'RATING_JOINER'    => isset($act['RATING_JOINER'])   ? (float)$act['RATING_JOINER']   : 0.0,
+  'REVIEWS_JOINER'   => isset($act['REVIEWS_JOINER'])  ? (int)$act['REVIEWS_JOINER']    : 0,
+  'RATING'           => isset($act['RATING_HOST'])     ? (float)$act['RATING_HOST']     : 0.0,
+  'REVIEWS'          => isset($act['REVIEWS_HOST'])    ? (int)$act['REVIEWS_HOST']      : 0,
+
 ];
 
-// === 2) flags：isHost / isJoiner / canCancel / canRate ===
+/* 2) flags：isHost / isJoiner / canCancel / canRate */
 $userId  = me_id();
 $isHost  = $userId ? ((int)$act['HOST_MEMBER_ID'] === (int)$userId) : false;
 
-// isJoiner：participant 有該人，且未取消（JOINER_CANCEL_AT 為 NULL）
+/* isJoiner：participant 有該人且未取消（統一用 JOINER_CANCELLED_AT）*/
 $isJoiner = false;
 if ($userId) {
-  $sql = "SELECT 1 FROM participant 
-          WHERE ACTIVITY_NO = ? AND PARTICIPANT_ID = ? AND JOINER_CANCEL_AT IS NULL
+  $sql = "SELECT 1 
+          FROM participant 
+          WHERE ACTIVITY_NO = ? 
+            AND PARTICIPANT_ID = ? 
+            AND JOINER_CANCEL_AT IS NULL
           LIMIT 1";
   $stmt = $db->prepare($sql);
   $stmt->bind_param("ii", $actNo, $userId);
   $stmt->execute();
-  $isJoiner = (bool)$stmt->get_result()->fetch_row();
+  $stmt->bind_result($dummy);
+  $isJoiner = $stmt->fetch() ? true : false;
   $stmt->close();
 }
 
@@ -103,28 +197,25 @@ try {
   $now      = new DateTime('now');
   $startAt  = !empty($act['ACTIVITY_START_DATE']) ? new DateTime($act['ACTIVITY_START_DATE']) : null;
   $oneDayBefore = $startAt ? (clone $startAt)->modify('-1 day') : null;
-$completedAt = !empty($act['ACTIVITY_END_DATE'])
-  ? new DateTime($act['ACTIVITY_END_DATE'])
-  : null;
 
-  $windowEnd = $completedAt ? (clone $completedAt)->modify('+7 days') : null;
+  $completedAt = !empty($act['ACTIVITY_END_DATE']) ? new DateTime($act['ACTIVITY_END_DATE']) : null;
+  $windowEnd   = $completedAt ? (clone $completedAt)->modify('+7 days') : null;
+
   if ($act['ACTIVITY_STATUS'] === '已完成' && $completedAt) {
     if ($now >= $completedAt && $now <= $windowEnd) {
       $canRate = ($isHost || $isJoiner);
     }
   }
-  // 取消規則：開始前一天起不能按；且狀態不能是「已取消/已完成」
   if ($startAt && $oneDayBefore && ($now < $oneDayBefore)) {
     if (!in_array($act['ACTIVITY_STATUS'], ['已取消','已完成'], true)) {
-      // 只有有身分（主揪或團員）才顯示可取消
       $canCancel = ($isHost || $isJoiner);
     }
   }
 } catch (Throwable $e) {
-  // 時間格式異常就保持 false
+  // ignore
 }
 
-// === 3) 參團者 preview（最多 6 筆，含暱稱/頭貼/城市/職業 + 該活動下此人被評分統計） ===
+/* 3) 參團者 preview（最多 6 筆） */
 $participantsPreview = [];
 $sql = "SELECT 
           p.PARTICIPANT_ID                 AS MEMBER_ID,
@@ -133,47 +224,48 @@ $sql = "SELECT
           ci.CITY_NAME                     AS CITY_NAME,
           o.OCCUPATION                     AS OCCUPATION,
           TIMESTAMPDIFF(YEAR, m.MEMBER_BIRTHDATE, CURDATE()) AS AGE,
-          -- 此人在本活動作為『參與者』被打的平均分數與次數
-          (SELECT ROUND(AVG(r2.RATING_SCORE),1)
-             FROM rating r2 
-            WHERE r2.ACTIVITY_NO = p.ACTIVITY_NO
-              AND r2.RATEE_ID    = p.PARTICIPANT_ID
-              AND r2.RATEE_ROLE  = '參與者'
-          ) AS rating,
-          (SELECT COUNT(*)
-             FROM rating r3 
-            WHERE r3.ACTIVITY_NO = p.ACTIVITY_NO
-              AND r3.RATEE_ID    = p.PARTICIPANT_ID
-              AND r3.RATEE_ROLE  = '參與者'
-          ) AS reviews
+          ROUND(CASE 
+                  WHEN m.JOINER_COUNT_TOTAL > 0 
+                  THEN m.JOINER_SCORE_TOTAL / m.JOINER_COUNT_TOTAL 
+                  ELSE 0 
+               END, 1) AS rating,
+          m.JOINER_COUNT_TOTAL AS reviews
         FROM participant p
         JOIN member      m  ON m.MEMBER_ID     = p.PARTICIPANT_ID
         LEFT JOIN city   ci ON ci.CITY_NO      = m.MEMBER_CITY
         LEFT JOIN occupation o ON o.OCCUPATION_NO = m.MEMBER_OCCUPATION
         WHERE p.ACTIVITY_NO = ?
+         AND p.JOINER_CANCEL_AT IS NULL
         ORDER BY p.CREATED_AT DESC
-        LIMIT 6";
+        ";
 $stmt = $db->prepare($sql);
 $stmt->bind_param("i", $actNo);
 $stmt->execute();
-$res = $stmt->get_result();
-while ($row = $res->fetch_assoc()) {
-  // 前端 key
+$stmt->bind_result(
+  $P_MEMBER_ID,
+  $P_NICKNAME,
+  $P_AVATAR,
+  $P_CITY_NAME,
+  $P_OCCUPATION,
+  $P_AGE,
+  $P_RATING,
+  $P_REVIEWS
+);
+while ($stmt->fetch()) {
   $participantsPreview[] = [
-    'MEMBER_ID' => (int)$row['MEMBER_ID'],
-    'NICKNAME'  => $row['NICKNAME'],
-    'AVATAR'    => $row['AVATAR'],
-    'city'   => $row['CITY_NAME'],
-    'age'    => isset($row['AGE']) ? (int)$row['AGE'] : null,
-    'role'   => $row['OCCUPATION'],
-    //
-    'rating'  => isset($row['rating'])  ? (float)$row['rating']  : 0.0,
-    'reviews' => isset($row['reviews']) ? (int)$row['reviews'] : 0,
+    'MEMBER_ID' => (int)$P_MEMBER_ID,
+    'NICKNAME'  => $P_NICKNAME,
+    'AVATAR'    => $P_AVATAR,
+    'city'      => $P_CITY_NAME,
+    'age'       => isset($P_AGE) ? (int)$P_AGE : null,
+    'role'      => $P_OCCUPATION,
+    'rating'    => isset($P_RATING)  ? (float)$P_RATING  : 0.0,
+    'reviews'   => isset($P_REVIEWS) ? (int)$P_REVIEWS : 0,
   ];
 }
 $stmt->close();
 
-// === 4) 此活動所有評分的平均/筆數 + 我自己有沒有評過 ===
+/* 4) 活動評分平均/筆數 + 我是否評過 — 改 bind_result */
 $ratings = ['avg'=>0.0, 'count'=>0, 'mine'=>null];
 
 $sql = "SELECT ROUND(AVG(RATING_SCORE),1) AS avg_score, COUNT(*) AS cnt
@@ -182,13 +274,12 @@ $sql = "SELECT ROUND(AVG(RATING_SCORE),1) AS avg_score, COUNT(*) AS cnt
 $stmt = $db->prepare($sql);
 $stmt->bind_param("i", $actNo);
 $stmt->execute();
-$avgRow = $stmt->get_result()->fetch_assoc();
-$stmt->close();
-
-if ($avgRow) {
-  $ratings['avg']   = (float)($avgRow['avg_score'] ?? 0);
-  $ratings['count'] = (int)($avgRow['cnt'] ?? 0);
+$stmt->bind_result($avg_score, $cnt);
+if ($stmt->fetch()) {
+  $ratings['avg']   = (float)($avg_score ?? 0);
+  $ratings['count'] = (int)($cnt ?? 0);
 }
+$stmt->close();
 
 if ($userId) {
   $sql = "SELECT RATING_SCORE
@@ -199,14 +290,14 @@ if ($userId) {
   $stmt = $db->prepare($sql);
   $stmt->bind_param("ii", $actNo, $userId);
   $stmt->execute();
-  if ($mine = $stmt->get_result()->fetch_assoc()) {
-    $ratings['mine'] = ['rating' => (int)$mine['RATING_SCORE']];
+  $stmt->bind_result($my_rating);
+  if ($stmt->fetch()) {
+    $ratings['mine'] = ['rating' => (int)$my_rating];
   }
   $stmt->close();
 }
 
-// === 5) 組 response ===
-// activity 物件：保留大部分欄位 + 額外帶 CATEGORY_NAME 給前端 template 用
+/* 5) 組 response */
 $activity = [
   'ACTIVITY_NO'             => (int)$act['ACTIVITY_NO'],
   'ACTIVITY_NAME'           => $act['ACTIVITY_NAME'],
@@ -225,7 +316,7 @@ $activity = [
   'ACTIVITY_DESCRIPTION'    => $act['ACTIVITY_DESCRIPTION'],
   'ACTIVITY_STATUS'         => $act['ACTIVITY_STATUS'],
   'HOSTER_CANCELLED_AT'     => $act['HOSTER_CANCELLED_AT'],
-  'HOST_MEMBER_ID'          => (int)$act['HOST_MEMBER_ID'],
+  'HOST_MEMBER_ID'          => (int)$act['HOST_MEMBER_ID'], 
   'CREATED_AT'              => $act['CREATED_AT'],
   'STAFF_ID'                => $act['STAFF_ID'],
   'LOCATION'                => $act['LOCATION'],
@@ -237,7 +328,7 @@ $out = [
   'activity' => $activity,
   'hoster'   => $hoster,
   'participants' => [
-    'count'  => (int)$act['CURRENT_PARTICIPANT'],
+    'count'  => count($participantsPreview),
     'preview'=> $participantsPreview,
   ],
   'ratings' => $ratings,
