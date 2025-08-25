@@ -1,16 +1,28 @@
 <?php
 
+require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/db.php';
 $db = db();
 header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Content-Type: application/json; charset=UTF-8");
+header("Access-Control-Allow-Credentials: true");
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
   http_response_code(405);
   echo json_encode(['error'=>true,'message'=>'只接受 POST'], JSON_UNESCAPED_UNICODE);
   exit;
 }
 
+session_start();
 
+function require_auth_user_id(): int {
+  if (empty($_SESSION['user']['id'])) {
+    http_response_code(401);
+    echo json_encode(['error'=>true,'message'=>'未登入'], JSON_UNESCAPED_UNICODE);
+    exit;
+  }
+  return (int)$_SESSION['user']['id'];
+}
 // 1) 取得欄位（全部用表單 name 對應）
 $activity_name         = $_POST['activity_name']         ?? '';
 $category_no           = $_POST['category_no']           ?? '';
@@ -71,13 +83,13 @@ if (isset($_FILES['activity_img']) && $_FILES['activity_img']['error'] === UPLOA
     echo json_encode(['error'=>true,'message'=>'圖片儲存失敗']);
     exit;
   }
-  $upload_rel_path = $upload_rel_path = rtrim($uploadDirRel, '/\\') . '/' . $safeName;
+$upload_rel_path = rtrim($uploadDirRel, '/\\') . '/' . $safeName;
 }
-$registration_start_date = $_POST['registration_start_date'] ?? null;
+
 if ($registration_start_date === '') { $registration_start_date = null; }
    $current_participant = 0;         // 目前報名人數
   $activity_status     = '審核中';    // 依你的 schema（文字/數字）自己決定
-$host_member_id = 1; // 先用假的會員ID，之後換成登入的ID
+$host_member_id = require_auth_user_id();
 // 5) 寫入資料庫
 try {
   $sql = "INSERT INTO activity (
@@ -102,9 +114,8 @@ try {
             ?, ?, ?, ?, ?, ?, ?)";
 
   $stmt = $db->prepare($sql);
-$types = 'ssiisssssssssisi';
-$stmt->bind_param(
-  $types,
+$types = 'siiisssssssssisi';
+$stmt->bind_param($types,
   $activity_name,            // 1
   $category_no,              // 2
   $min_participant,          // 3

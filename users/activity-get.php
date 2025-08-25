@@ -47,34 +47,35 @@ try {
 
   if ($type === 'all') {
     $sql = "
-      SELECT *
-      FROM (
-        SELECT 
-          a.activity_no,
-          a.activity_name,
-          COALESCE(a.activity_img, '/img/default-activity.png') AS activity_img,
-          a.activity_status,
-          a.activity_description,
-          a.activity_start_date AS activity_start_at,
-          DATE_FORMAT(a.activity_start_date, '%m/%d') AS activity_start_txt,
-          'participant' AS role
-        FROM participant p
-        JOIN activity a ON a.activity_no = p.activity_no
-        WHERE p.participant_id = ?
+        SELECT *
+        FROM (
+            SELECT 
+            a.activity_no,
+            a.activity_name,
+            COALESCE(a.activity_img, '/img/default-activity.png') AS activity_img,
+            a.activity_status,
+            a.activity_description,
+            a.activity_start_date AS activity_start_at,
+            DATE_FORMAT(a.activity_start_date, '%m/%d') AS activity_start_txt,
+            'participant' AS role
+            FROM participant p
+            JOIN activity a ON a.activity_no = p.activity_no
+            WHERE p.participant_id = ?
+                AND p.JOINER_CANCEL_REASON_NO IS NULL
 
         UNION ALL
 
         SELECT
-          a.activity_no,
-          a.activity_name,
-          COALESCE(a.activity_img, '/img/default-activity.png') AS activity_img,
-          a.activity_status,
-          a.activity_description,
-          a.activity_start_date AS activity_start_at,
-          DATE_FORMAT(a.activity_start_date, '%m/%d') AS activity_start_txt,
-          'host' AS role
-        FROM activity a
-        WHERE a.host_member_id = ?
+            a.activity_no,
+            a.activity_name,
+            COALESCE(a.activity_img, '/img/default-activity.png') AS activity_img,
+            a.activity_status,
+            a.activity_description,
+            a.activity_start_date AS activity_start_at,
+            DATE_FORMAT(a.activity_start_date, '%m/%d') AS activity_start_txt,
+            'host' AS role
+            FROM activity a
+            WHERE a.host_member_id = ?
       ) AS t
       ORDER BY 
         (t.activity_start_at < NOW()) ASC,
@@ -97,6 +98,7 @@ try {
       FROM participant p
       JOIN activity a ON a.activity_no = p.activity_no
       WHERE p.participant_id = ?
+      AND p.JOINER_CANCEL_REASON_NO IS NULL
       ORDER BY 
         (a.activity_start_date < NOW()) ASC,
         ABS(TIMESTAMPDIFF(SECOND, a.activity_start_date, NOW())) ASC
