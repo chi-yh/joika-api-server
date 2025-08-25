@@ -1,9 +1,10 @@
+
 <?php
+header('Content-Type: application/json; charset=utf-8');
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-header('Content-Type: application/json; charset=utf-8');
-header("Access-Control-Allow-Origin: http://localhost:5173"); // 記得換成您前端的網址
+require_once __DIR__ . '/../config/cors.php';
 
 if ($_SERVER["REQUEST_METHOD"] !== "GET") {
     http_response_code(405);

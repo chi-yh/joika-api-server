@@ -1,6 +1,7 @@
 <?php
   // 取得第二步的下拉式選單資料
   // GET
+  require_once __DIR__ . '/../config/cors.php';
   require_once __DIR__ . '/../config/db.php';
   header('Content-Type: application/json; charset=utf-8');
   $db = db();
@@ -14,10 +15,8 @@
 
   try {
     // 取得縣市資料
-    $sql= "SELECT city_no AS value, city_name AS label FROM city ORDER BY city_no";
-    $stmt = $db->prepare($sql);
-    $stmt->execute();
-    $result = $stmt->get_result();
+    $sql= "SELECT CITY_NO AS value, CITY_NAME AS label FROM city ORDER BY CITY_NO";
+    $result = $db->query($sql);
   
     $cities = [];
     while ($row = $result->fetch_assoc()) {
@@ -28,10 +27,8 @@
     }
 
     // 取得職業資料
-    $sql= "SELECT occupation_no AS value, occupation AS label FROM occupation ORDER BY occupation_no";
-    $stmt = $db->prepare($sql);
-    $stmt->execute();
-    $result = $stmt->get_result();
+    $sql= "SELECT OCCUPATION_NO AS value, OCCUPATION AS label FROM occupation ORDER BY OCCUPATION_NO";
+    $result = $db->query($sql);
   
     $occupations = [];
     while ($row = $result->fetch_assoc()) {
@@ -42,10 +39,8 @@
     }
 
     // 取得興趣分類資料
-    $sql= "SELECT category_no AS value, category_name AS label FROM category ORDER BY category_no";
-    $stmt = $db->prepare($sql);
-    $stmt->execute();
-    $result = $stmt->get_result();
+    $sql= "SELECT CATEGORY_NO AS value, CATEGORY_NAME AS label FROM category ORDER BY CATEGORY_NO";
+    $result = $db->query($sql);
   
     $interests = [];
     $colors = ["#6DE1D2", "#FFD63A", "#FFD63A", "#FF8C86", "#FFA955", "#6DE1D2", "#77BEF0", "#77BEF0", "#FF8C86", "#FFA955", "#6DE1D2", "#77BEF0", "#969696"];
@@ -61,7 +56,7 @@
 
     // 回傳所有選單的資料
     echo json_encode([
-      "success" => "true",
+      "success" => true,
       "data" => [
         "cities" => $cities,
         "occupations" => $occupations,

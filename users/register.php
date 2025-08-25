@@ -67,28 +67,24 @@
       http_response_code(400);
       echo json_encode(["error" => "密碼未填寫"], JSON_UNESCAPED_UNICODE);
       exit;
-    } elseif ((strlen($memberPassword) < 6 && strlen($memberPassword) > 12)) {
+    } elseif ((strlen($memberPassword) < 6 || strlen($memberPassword) > 12)) {
       http_response_code(400);
       echo json_encode(["error" => "密碼長度需介於 6 ~ 12 字元"]);
     }
   
     try {
       // 檢查手機號碼或email是否已註冊
-      $sql = "SELECT member_email, member_phone FROM member WHERE member_email = ? OR member_phone = ?";
+      $sql = "SELECT MEMBER_EMAIL, MEMBER_PHONE FROM member WHERE MEMBER_EMAIL = ? OR MEMBER_PHONE = ?";
       $stmt = $db->prepare($sql);
       $stmt->bind_param("ss", $memberEmail, $memberPhone);
       $stmt->execute();
-      $result = $stmt->get_result();
+      $stmt->store_result();
+      $stmt->bind_result($email, $phone);
       $errors = [];
-  
-      while ($row = $result->fetch_assoc()) {
-        if ($row["member_email"] === $memberEmail) {
-          $errors["email"] = "此信箱已被註冊";
-        }
-  
-        if ($row["member_phone"] === $memberPhone) {
-          $errors["phone"] = "此手機號碼已被註冊";
-        }
+
+      while ($stmt->fetch()) {
+        if ($email === $memberEmail) $errors["email"] = "此信箱已被註冊";
+        if ($phone === $memberPhone) $errors["phone"] = "此手機號碼已被註冊";
       }
   
       if (!empty($errors)) {
@@ -202,13 +198,13 @@
       $errors["city"] = "請選擇居住城市";
     } else {
       // 檢查城市是否存在
-      $sql = "SELECT city_no FROM city WHERE city_no = ?";
+      $sql = "SELECT CITY_NO FROM city WHERE CITY_NO = ?";
       $stmt = $db->prepare($sql);
       $stmt->bind_param("i", $memberCity);
       $stmt->execute();
-      if ($stmt->get_result()->num_rows === 0) {
-        $errors["city"] = "無效的選項";
-      }
+      $stmt->store_result();
+
+      if ($stmt->num_rows === 0) $errors["city"] = "無效的選項";
     }
 
     // 驗證職業
@@ -216,13 +212,13 @@
       $errors["occupation"] = "請選擇職業";
     } else {
       // 檢查職業是否存在
-      $sql = "SELECT occupation_no FROM occupation WHERE occupation_no = ?";
+      $sql = "SELECT OCCUPATION_NO FROM occupation WHERE OCCUPATION_NO = ?";
       $stmt = $db->prepare($sql);
       $stmt->bind_param("i", $memberOccupation);
       $stmt->execute();
-      if ($stmt->get_result()->num_rows === 0) {
-        $errors["occupation"] = "無效的選項";
-      }
+      $stmt->store_result();
+
+      if ($stmt->num_rows === 0) $errors["occupation"] = "無效的選項";
     }
 
     // 驗證興趣
@@ -236,16 +232,17 @@
         if (!is_numeric($interest)) {
           $errors["interests"] = "格式錯誤";
           break;
+        }
 
-          $sql = "SELECT category_no FROM category WHERE category_no = ?";
-          $stmt = $db->prepare($sql);
-          $stmt->bind_param("i", $interest);
-          $stmt->execute();
+        $sql = "SELECT CATEGORY_NO FROM category WHERE CATEGORY_NO = ?";
+        $stmt = $db->prepare($sql);
+        $stmt->bind_param("i", $interest);
+        $stmt->execute();
+        $stmt->store_result();
 
-          if ($stmt->get_result()->num_rows === 0) {
-            $errors["interests"] = "包含無效的選項";
-            break;
-          }
+        if ($stmt->num_rows === 0) {
+          $errors["interests"] = "包含無效的選項";
+          break;
         }
       }
     }
@@ -291,7 +288,7 @@
         $ext = strtolower(pathinfo($_FILES["avatar"]["name"], PATHINFO_EXTENSION)); // 副檔名
         $randomStr = bin2hex(random_bytes(4)); // 產生新檔名 (隨機字串 + 副檔名)
         $saveName = date("Ymd_His") . "_" . $randomStr . "." . $ext;
-        $uploadDir = __DIR__ . "/uploads/avatar";
+        $uploadDir = __DIR__ . "/uploads/avatar/";
         if (!is_dir($uploadDir)) {
             mkdir($uploadDir, 0755, true);
         }
@@ -305,18 +302,18 @@
       }
 
       $sql = "INSERT INTO member (
-        member_email, 
-        member_phone, 
-        member_password, 
-        member_name, 
-        member_nickname, 
-        member_gender, 
-        member_birthdate, 
-        member_city, 
-        member_occupation,
-        member_avatar,
-        member_status,
-        registration_date
+        MEMBER_EMAIL, 
+        MEMBER_PHONE, 
+        MEMBER_PASSWORD, 
+        MEMBER_NAME, 
+        MEMBER_NICKNAME, 
+        MEMBER_GENDER, 
+        MEMBER_BIRTHDATE, 
+        MEMBER_CITY, 
+        MEMBER_OCCUPATION,
+        MEMBER_AVATAR,
+        MEMBER_STATUS,
+        REGISTRATION_DATE
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '待審核', NOW())";
 
       $stmt = $db->prepare($sql);
@@ -341,7 +338,7 @@
   
       // 新增會員興趣(代號)至 member_interest 資料表中
       if (!empty($memberInterests)) {
-        $sql = "INSERT INTO member_interest (member_id, interest_no) VALUES (?, ?)";
+        $sql = "INSERT INTO member_interest (MEMBER_ID, INTEREST_NO) VALUES (?, ?)";
         $stmt = $db->prepare($sql);
 
         foreach ($memberInterests as $interestNo) {

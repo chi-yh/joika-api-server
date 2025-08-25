@@ -1,12 +1,11 @@
 <?php
+header('Content-Type: application/json; charset=utf-8');
 // --- 基礎設定 ---
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-header("Access-Control-Allow-Origin: http://localhost:5173");
-header("Content-Type: application/json; charset=UTF-8");
-
+require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/db.php';
 
 // --- 驗證請求 ---
