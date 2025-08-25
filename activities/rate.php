@@ -1,5 +1,5 @@
 <?php
-    #團主與團員評分
+# 團主與團員評分
 header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/../config/cors.php';
 require_once __DIR__ . '/../config/db.php';
@@ -8,12 +8,13 @@ session_start();
 function json_out($d,$c=200){ http_response_code($c); echo json_encode($d,JSON_UNESCAPED_UNICODE); exit; }
 function me_id(){ return $_SESSION['user']['id'] ?? null; }
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(204); exit; }
-
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') json_out(['error'=>'Method not allowed'], 405);
+
 $payload = json_decode(file_get_contents('php://input'), true);
 $actNo   = (int)($payload['activity_no'] ?? 0);
 $items   = $payload['items'] ?? [];
 $me      = me_id();
+
 if (!$me)         json_out(['error'=>'未登入'], 401);
 if (!$actNo)      json_out(['error'=>'缺少 activity_no'], 400);
 if (!is_array($items) || !count($items)) json_out(['error'=>'沒有評分項目'], 400);
@@ -22,12 +23,21 @@ $db = db();
 
 /* 1) 取活動 + 判斷 7 天內 */
 $sql = "SELECT ACTIVITY_STATUS, ACTIVITY_END_DATE, HOST_MEMBER_ID
-        FROM activity WHERE ACTIVITY_NO=?";
+        FROM activity WHERE ACTIVITY_NO = ?";
 $stmt = $db->prepare($sql);
 $stmt->bind_param("i", $actNo);
 $stmt->execute();
-$act = $stmt->get_result()->fetch_assoc();
+$stmt->bind_result($ACTIVITY_STATUS, $ACTIVITY_END_DATE, $HOST_MEMBER_ID);
+$act = null;
+if ($stmt->fetch()) {
+  $act = [
+    'ACTIVITY_STATUS'  => $ACTIVITY_STATUS,
+    'ACTIVITY_END_DATE'=> $ACTIVITY_END_DATE,
+    'HOST_MEMBER_ID'   => $HOST_MEMBER_ID,
+  ];
+}
 $stmt->close();
+
 if (!$act) json_out(['error'=>'活動不存在'], 404);
 if ($act['ACTIVITY_STATUS'] !== '已完成') json_out(['error'=>'活動尚未完成，不能評分'], 400);
 
@@ -38,13 +48,17 @@ if (new DateTime('now') > $deadline) json_out(['error'=>'超過評分期限（�
 
 /* 2) 判斷我是不是主揪或團員 */
 $isHost = ((int)$act['HOST_MEMBER_ID'] === (int)$me);
+
 $partIds = [];
-$stmt = $db->prepare("SELECT PARTICIPANT_ID FROM participant WHERE ACTIVITY_NO=? AND JOINER_CANCEL_AT IS NULL");
+$stmt = $db->prepare("SELECT PARTICIPANT_ID FROM participant WHERE ACTIVITY_NO = ? AND JOINER_CANCEL_AT IS NULL");
 $stmt->bind_param("i", $actNo);
 $stmt->execute();
-$res = $stmt->get_result();
-while ($row = $res->fetch_assoc()) $partIds[] = (int)$row['PARTICIPANT_ID'];
+$stmt->bind_result($PID);
+while ($stmt->fetch()) {
+  $partIds[] = (int)$PID;
+}
 $stmt->close();
+
 $isJoiner = in_array((int)$me, $partIds, true);
 if (!$isHost && !$isJoiner) json_out(['error'=>'你不是此活動主揪/團員，不能評分'], 403);
 
@@ -59,14 +73,14 @@ try {
     $rateeRole = $i['ratee_role'] ?? '';
     $score     = (int)($i['rating_score'] ?? 0);
 
-    if (!$rateeId || !in_array($rateeRole, ['主揪','參與者'], true)) continue; // 跳過不合法
-    if ($score < 1 || $score > 5) continue; // 跳過不合法
+    if (!$rateeId || !in_array($rateeRole, ['主揪','參與者'], true)) continue;
+    if ($score < 1 || $score > 5) continue;
 
     // 身分規則
     if ($isHost) {
       // 主揪只能評「團員」
       if ($rateeRole !== '參與者' || !in_array($rateeId, $partIds, true)) continue;
-    } else { 
+    } else {
       // 團員可以評「主揪」或「其他團員（不得評自己）」
       if ($rateeRole === '主揪') {
         if ($rateeId !== (int)$act['HOST_MEMBER_ID']) continue;
@@ -82,7 +96,6 @@ try {
       $ins->execute();
     } catch (mysqli_sql_exception $e) {
       if ($e->getCode() == 1062) {
-        // 已評過：直接拋錯或忽略
         throw new Exception("你已經評過此對象（ratee_id=$rateeId, role=$rateeRole）");
       }
       throw $e;
@@ -95,4 +108,3 @@ try {
   $db->rollback();
   json_out(['error'=>$e->getMessage()], 400);
 }
-?>

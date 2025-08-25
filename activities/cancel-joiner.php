@@ -53,7 +53,25 @@ $sql = "SELECT
 $stmt = $db->prepare($sql);
 $stmt->bind_param("i", $activityNo);
 $stmt->execute();
-$act = $stmt->get_result()->fetch_assoc();
+
+$stmt->bind_result(
+  $ACTIVITY_NO,
+  $ACTIVITY_STATUS,
+  $HOST_MEMBER_ID,
+  $REGISTRATION_DEADLINE,
+  $ACTIVITY_START_DATE
+);
+
+$act = null;
+if ($stmt->fetch()) {
+  $act = [
+    'ACTIVITY_NO'            => $ACTIVITY_NO,
+    'ACTIVITY_STATUS'        => $ACTIVITY_STATUS,
+    'HOST_MEMBER_ID'         => $HOST_MEMBER_ID,
+    'REGISTRATION_DEADLINE'  => $REGISTRATION_DEADLINE,
+    'ACTIVITY_START_DATE'    => $ACTIVITY_START_DATE,
+  ];
+}
 $stmt->close();
 
 if (!$act) json(['error'=>true,'message'=>'活動不存在'], 404);
@@ -81,14 +99,17 @@ if ($startAt) {
 
 /* === 確認是參與者，且尚未取消 ===
    依你的表：PK = (ACTIVITY_NO, PARTICIPANT_ID)
-   取消時間欄位：JOINER_CANCELLED_AT */
+   取消時間欄位：JOINER_CANCEL_AT */
 $sql = "SELECT 1
         FROM participant
-        WHERE ACTIVITY_NO = ? AND PARTICIPANT_ID = ? AND (JOINER_CANCELLED_AT IS NULL)";
+        WHERE ACTIVITY_NO = ? AND PARTICIPANT_ID = ? AND (JOINER_CANCEL_AT IS NULL)";
 $stmt = $db->prepare($sql);
 $stmt->bind_param("ii", $activityNo, $userId);
 $stmt->execute();
-$isJoiner = (bool)$stmt->get_result()->fetch_row();
+
+$stmt->bind_result($dummy);
+$isJoiner = $stmt->fetch();
+
 $stmt->close();
 
 if (!$isJoiner) {
@@ -103,8 +124,8 @@ try {
   $sql = "UPDATE participant
           SET JOINER_CANCEL_REASON_NO = ?,
               JOINER_CANCEL_DESCRIPTION = ?,
-              JOINER_CANCELLED_AT = NOW()
-          WHERE ACTIVITY_NO = ? AND PARTICIPANT_ID = ? AND JOINER_CANCELLED_AT IS NULL";
+              JOINER_CANCEL_AT = NOW()
+          WHERE ACTIVITY_NO = ? AND PARTICIPANT_ID = ? AND JOINER_CANCEL_AT IS NULL";
   $stmt = $db->prepare($sql);
 
   // 允許 null
