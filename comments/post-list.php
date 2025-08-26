@@ -37,6 +37,7 @@ if ($postNo > 0) {
             pc.POST_COMMENT_NO, 
             pc.MEMBER_ID, 
             m.MEMBER_NICKNAME,
+            m.MEMBER_AVATAR,
             pc.POST_NO, 
             pc.COMMENT_CONTENT, 
             pc.CREATED_AT, 
@@ -56,12 +57,14 @@ if ($postNo > 0) {
     
  $stmt->execute();
 $stmt->store_result();
-$stmt->bind_result($comment_no, $member_id, $member_nickname, $post_no, $comment_content, $created_at, $parent_no, $comment_status, $like_count);
+$stmt->bind_result($comment_no, $member_id, $member_nickname,$member_avatar, $post_no, $comment_content, $created_at, $parent_no, $comment_status, $like_count);
 while ($stmt->fetch()) {
     $comments[] = [
         'POST_COMMENT_NO' => $comment_no,
         'MEMBER_ID' => $member_id,
         'MEMBER_NICKNAME' => $member_nickname,
+        'MEMBER_AVATAR' => $member_avatar, 
+
         'POST_NO' => $post_no,
         'COMMENT_CONTENT' => $comment_content,
         'CREATED_AT' => $created_at,

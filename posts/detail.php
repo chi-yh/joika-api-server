@@ -27,7 +27,7 @@ try {
     $mysqli = db();
 
  // JOIN member 取得暱稱
-    $sql = "SELECT p.*, m.MEMBER_NICKNAME
+    $sql = "SELECT p.*, m.MEMBER_NICKNAME, m.MEMBER_AVATAR
             FROM `post` p
             JOIN `member` m ON p.MEMBER_ID = m.MEMBER_ID
             WHERE p.POST_NO = ? AND p.POST_STATUS = '顯示'";
