@@ -35,10 +35,17 @@ if (!in_array($fileType, $allowed)) {
   echo json_encode(['error'=>true,'message'=>'只允許 jpg/png/webp/gif 格式']);
   exit;
 }
-
-// 產生唯一檔名
+ //產生副檔名
 $ext = pathinfo($fileName, PATHINFO_EXTENSION);
-$safeName = date('Ymd_His') . '_' . bin2hex(random_bytes(4)) . '.' . strtolower($ext);
+// 產生自訂檔名（放在這裡）
+$today = date('Ymd');
+$prefix = 'postimg';
+$dir_files = glob($uploadDirAbs . "/{$prefix}{$today}_*.{$ext}");
+$serial = str_pad(count($dir_files) + 1, 4, '0', STR_PAD_LEFT);
+
+// 檔名格式：postimg20250826_0001.jpg
+$safeName = "{$prefix}{$today}_{$serial}." . strtolower($ext);
+
 
 // 上傳路徑
 $uploadDirAbs = __DIR__ . '/../upload/article-img';
@@ -53,10 +60,13 @@ if (!move_uploaded_file($fileTmp, $destAbs)) {
 }
 
 $upload_rel_path = rtrim($uploadDirRel, '/\\') . '/' . $safeName;
+$full_url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http")
+  . "://" . $_SERVER['HTTP_HOST'] . $upload_rel_path;
 
 // 回傳路徑給前端
 echo json_encode([
   'error' => false,
   'message' => '上傳成功',
-  'path' => $upload_rel_path
+  'path' => $upload_rel_path,
+  'url' => $full_url
 ], JSON_UNESCAPED_UNICODE);
