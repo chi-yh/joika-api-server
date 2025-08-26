@@ -118,47 +118,59 @@ if (!$isJoiner) {
 
 /* === 交易開始 === */
 $db->begin_transaction();
-
 try {
-  // 1) 寫入 participant 的取消紀錄
-  $sql = "UPDATE participant
-          SET JOINER_CANCEL_REASON_NO = ?,
-              JOINER_CANCEL_DESCRIPTION = ?,
-              JOINER_CANCEL_AT = NOW()
-          WHERE ACTIVITY_NO = ? AND PARTICIPANT_ID = ? AND JOINER_CANCEL_AT IS NULL";
+  // 鎖定該參與紀錄，必須是尚未取消且在可取消狀態
+  $sql = "SELECT JOINER_STATUS
+          FROM participant
+          WHERE ACTIVITY_NO = ? AND PARTICIPANT_ID = ?
+            AND JOINER_STATUS IN ('審核中','已參加')
+            AND JOINER_CANCEL_AT IS NULL
+          FOR UPDATE";
   $stmt = $db->prepare($sql);
-
-  // 允許 null
-  if ($reasonDesc === '') $reasonDesc = null;
-  // 綁定：i s i i
-  $stmt->bind_param("isii", $reasonNo, $reasonDesc, $activityNo, $userId);
+  $stmt->bind_param("ii", $activityNo, $userId);
   $stmt->execute();
-  $affected1 = $stmt->affected_rows;
+  $stmt->bind_result($JOINER_STATUS);
+  $ok = $stmt->fetch();
   $stmt->close();
 
-  if ($affected1 <= 0) {
-    throw new Exception('取消失敗或已取消過');
+  if (!$ok) {
+    throw new Exception('你未參加此活動或已取消，無法取消');
   }
 
-  // 2) activity.current_participant - 1（避免負數）
-  $sql = "UPDATE activity
-          SET CURRENT_PARTICIPANT = CASE 
-            WHEN CURRENT_PARTICIPANT > 0 THEN CURRENT_PARTICIPANT - 1
-            ELSE 0 END
-          WHERE ACTIVITY_NO = ?";
+  // 更新為「已取消」並記錄原因/時間
+  $sql = "UPDATE participant
+          SET JOINER_STATUS = '已取消',
+              JOINER_CANCEL_REASON_NO = ?,
+              JOINER_CANCEL_DESCRIPTION = ?,
+              JOINER_CANCEL_AT = NOW()
+          WHERE ACTIVITY_NO = ? AND PARTICIPANT_ID = ?
+            AND JOINER_CANCEL_AT IS NULL";
   $stmt = $db->prepare($sql);
-  $stmt->bind_param("i", $activityNo);
+  if ($reasonDesc === '') $reasonDesc = null;
+  $stmt->bind_param("isii", $reasonNo, $reasonDesc, $activityNo, $userId);
+  $stmt->execute();
+  if ($stmt->affected_rows <= 0) {
+    throw new Exception('取消失敗或已取消過');
+  }
+  $stmt->close();
+
+  // 重算 CURRENT_PARTICIPANT（只計「已參加」）
+  $sql = "UPDATE activity a
+          LEFT JOIN (
+            SELECT ACTIVITY_NO, COUNT(*) AS cnt
+            FROM participant
+            WHERE ACTIVITY_NO = ? AND JOINER_STATUS = '已參加'
+            GROUP BY ACTIVITY_NO
+          ) x ON x.ACTIVITY_NO = a.ACTIVITY_NO
+          SET a.CURRENT_PARTICIPANT = IFNULL(x.cnt, 0)
+          WHERE a.ACTIVITY_NO = ?";
+  $stmt = $db->prepare($sql);
+  $stmt->bind_param("ii", $activityNo, $activityNo);
   $stmt->execute();
   $stmt->close();
 
   $db->commit();
-
-  json([
-    'ok' => true,
-    'role' => 'joiner',
-    'message' => '已取消參加',
-    'activity_no' => $activityNo
-  ]);
+  json(['ok'=>true, 'role'=>'joiner', 'message'=>'已取消參加', 'activity_no'=>$activityNo]);
 
 } catch (Throwable $e) {
   $db->rollback();
