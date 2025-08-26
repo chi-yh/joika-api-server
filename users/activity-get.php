@@ -61,7 +61,7 @@ try {
             FROM participant p
             JOIN activity a ON a.activity_no = p.activity_no
             WHERE p.participant_id = ?
-                AND p.JOINER_CANCEL_REASON_NO IS NULL
+            AND p.joiner_status = '已參加'
 
         UNION ALL
 
@@ -95,11 +95,11 @@ try {
         a.activity_start_date AS activity_start_at,
         DATE_FORMAT(a.activity_start_date, '%m/%d') AS activity_start_txt,
         'participant' AS role
-      FROM participant p
-      JOIN activity a ON a.activity_no = p.activity_no
-      WHERE p.participant_id = ?
-      AND p.JOINER_CANCEL_REASON_NO IS NULL
-      ORDER BY 
+        FROM participant p
+        JOIN activity a ON a.activity_no = p.activity_no
+        WHERE p.participant_id = ? 
+        AND p.joiner_status = '已參加'
+        ORDER BY 
         (a.activity_start_date < NOW()) ASC,
         ABS(TIMESTAMPDIFF(SECOND, a.activity_start_date, NOW())) ASC
       LIMIT $L OFFSET $O";
