@@ -95,7 +95,7 @@ $sql3 = "INSERT INTO notification
             ),
             1000
           ),
-          NOW(),`
+          NOW(),
           '未讀'
          FROM PARTICIPANT p
          JOIN ACTIVITY a ON a.ACTIVITY_NO = p.ACTIVITY_NO

@@ -15,13 +15,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 session_start();
 
-function require_auth_user_id(): int {
-  if (empty($_SESSION['user']['id'])) {
-    http_response_code(401);
-    echo json_encode(['error'=>true,'message'=>'未登入'], JSON_UNESCAPED_UNICODE);
-    exit;
+function require_auth_member_id(): int {
+  if (!empty($_SESSION['member_id'])) {
+    return (int)$_SESSION['member_id'];
   }
-  return (int)$_SESSION['user']['id'];
+  if (!empty($_SESSION['user']['id'])) { 
+    return (int)$_SESSION['user']['id'];
+  }
+  http_response_code(401);
+  echo json_encode(['error'=>true,'message'=>'未登入'], JSON_UNESCAPED_UNICODE);
+  exit;
 }
 // 1) 取得欄位（全部用表單 name 對應）
 $activity_name         = $_POST['activity_name']         ?? '';
@@ -89,7 +92,7 @@ $upload_rel_path = rtrim($uploadDirRel, '/\\') . '/' . $safeName;
 if ($registration_start_date === '') { $registration_start_date = null; }
    $current_participant = 0;         // 目前報名人數
   $activity_status     = '審核中';    // 依你的 schema（文字/數字）自己決定
-$host_member_id = require_auth_user_id();
+$host_member_id = require_auth_member_id();
 // 5) 寫入資料庫
 try {
   $sql = "INSERT INTO activity (
