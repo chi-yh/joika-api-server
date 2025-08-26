@@ -180,6 +180,7 @@ if ($userId) {
           FROM participant 
           WHERE ACTIVITY_NO = ? 
             AND PARTICIPANT_ID = ? 
+             AND JOINER_STATUS = '已參加'
             AND JOINER_CANCEL_AT IS NULL
           LIMIT 1";
   $stmt = $db->prepare($sql);
@@ -235,6 +236,7 @@ $sql = "SELECT
         LEFT JOIN city   ci ON ci.CITY_NO      = m.MEMBER_CITY
         LEFT JOIN occupation o ON o.OCCUPATION_NO = m.MEMBER_OCCUPATION
         WHERE p.ACTIVITY_NO = ?
+        AND p.JOINER_STATUS = '已參加'
          AND p.JOINER_CANCEL_AT IS NULL
         ORDER BY p.CREATED_AT DESC
         ";
