@@ -97,7 +97,7 @@ $sql3 = "INSERT INTO notification
           ),
           NOW(),
           '未讀'
-         FROM PARTICIPANT p
+         FROM participant p
          JOIN activity a ON a.ACTIVITY_NO = p.ACTIVITY_NO
          WHERE p.ACTIVITY_NO = ?";
   $stmt3 = $mysqli->prepare($sql3);

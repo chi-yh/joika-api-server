@@ -48,7 +48,7 @@ if (empty($activityNo) || $memberId <= 0) {
 // === 使用 try...catch 區塊來執行資料庫操作 ===
 try {
     // 第一次嘗試：直接新增紀錄
-    $sql_insert = "INSERT INTO PARTICIPANT (ACTIVITY_NO, PARTICIPANT_ID, JOINER_STATUS, CREATED_AT) VALUES (?, ?, '審核中', NOW())";
+    $sql_insert = "INSERT INTO participant (ACTIVITY_NO, PARTICIPANT_ID, JOINER_STATUS, CREATED_AT) VALUES (?, ?, '審核中', NOW())";
     $stmt_insert = $db->prepare($sql_insert);
     $stmt_insert->bind_param("si", $activityNo, $memberId);
     $stmt_insert->execute();
@@ -61,7 +61,7 @@ try {
     if ($e->getCode() === 1062) {
         try {
             // 第二次嘗試：更新「已取消」的紀錄
-            $sql_update = "UPDATE PARTICIPANT SET JOINER_STATUS = '審核中', CREATED_AT = NOW() WHERE ACTIVITY_NO = ? AND PARTICIPANT_ID = ? AND JOINER_STATUS = '已取消'";
+            $sql_update = "UPDATE participant SET JOINER_STATUS = '審核中', CREATED_AT = NOW() WHERE ACTIVITY_NO = ? AND PARTICIPANT_ID = ? AND JOINER_STATUS = '已取消'";
             $stmt_update = $db->prepare($sql_update);
             $stmt_update->bind_param("si", $activityNo, $memberId);
             $stmt_update->execute();

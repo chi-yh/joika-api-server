@@ -89,7 +89,7 @@ if ($action === 'check_prerequisites') {
     $activityNos = [];
 
     // --- 查詢一：找出使用者狀態為「已參加」或「審核中」的活動 ---
-    $sql_joined = "SELECT ACTIVITY_NO FROM PARTICIPANT WHERE PARTICIPANT_ID = ? AND (JOINER_STATUS = '已參加' OR JOINER_STATUS = '審核中')";
+    $sql_joined = "SELECT ACTIVITY_NO FROM participant WHERE PARTICIPANT_ID = ? AND (JOINER_STATUS = '已參加' OR JOINER_STATUS = '審核中')";
     $stmt_joined = $db->prepare($sql_joined);
     $stmt_joined->bind_param("i", $memberId);
     $stmt_joined->execute();
