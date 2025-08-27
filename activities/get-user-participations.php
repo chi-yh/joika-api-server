@@ -40,7 +40,7 @@ if ($action === 'check_prerequisites') {
     }
 
     // 1. 檢查活動本身的狀態 (ACTIVITY 表)
-    $sql_activity = "SELECT ACTIVITY_STATUS FROM ACTIVITY WHERE ACTIVITY_NO = ?";
+    $sql_activity = "SELECT ACTIVITY_STATUS FROM activity WHERE ACTIVITY_NO = ?";
     $stmt_activity = $db->prepare($sql_activity);
     $stmt_activity->bind_param("s", $activityNo);
     $stmt_activity->execute();
@@ -101,7 +101,7 @@ if ($action === 'check_prerequisites') {
     $stmt_joined->close();
 
     // --- 查詢二：找出使用者「主辦」的活動 ---
-    $sql_hosted = "SELECT ACTIVITY_NO FROM ACTIVITY WHERE HOST_MEMBER_ID = ?";
+    $sql_hosted = "SELECT ACTIVITY_NO FROM activity WHERE HOST_MEMBER_ID = ?";
     $stmt_hosted = $db->prepare($sql_hosted);
     $stmt_hosted->bind_param("i", $memberId);
     $stmt_hosted->execute();
