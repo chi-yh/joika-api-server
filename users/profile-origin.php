@@ -22,13 +22,57 @@
     exit;
   }
 
-  // 會員 ID
-  if (!isset($_SESSION['member_id'])) {
-    echo json_encode(['success' => false, 'msg' => '尚未登入'], JSON_UNESCAPED_UNICODE);
+  // 診斷 Session 狀態
+  error_log("Session ID: " . session_id());
+  error_log("Session data: " . print_r($_SESSION, true));
+
+  // 取得會員 ID (優先順序：Session > GET 參數)
+  $memberId = null;
+  $authMethod = '';
+
+  if (isset($_SESSION['member_id'])) {
+    // 方法1: 使用 Session (推薦)
+    $memberId = (int)$_SESSION['member_id'];
+    $authMethod = 'session';
+    error_log("使用 Session 驗證，Member ID: " . $memberId);
+    
+  } elseif (isset($_GET['member_id']) && is_numeric($_GET['member_id'])) {
+    // 方法2: 使用 GET 參數 (備用方案)
+    $memberId = (int)$_GET['member_id'];
+    $authMethod = 'get_param';
+    error_log("使用 GET 參數驗證，Member ID: " . $memberId);
+    
+    // 可選：加入額外的安全驗證
+    if (isset($_GET['token'])) {
+      $expectedToken = hash('sha256', $memberId . 'your_secret_key');
+      if ($_GET['token'] !== $expectedToken) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'msg' => '驗證失敗'], JSON_UNESCAPED_UNICODE);
+        exit;
+      }
+    }
+    
+  } else {
+    http_response_code(401);
+    echo json_encode([
+      'success' => false, 
+      'msg' => '尚未登入或缺少會員識別資訊',
+      'debug' => [
+        'session_exists' => isset($_SESSION['member_id']),
+        'get_param_exists' => isset($_GET['member_id']),
+        'session_keys' => array_keys($_SESSION)
+      ]
+    ], JSON_UNESCAPED_UNICODE);
     exit;
   }
 
-  $memberId = (int)$_SESSION['member_id'];
+  // // 會員 ID
+  // if (!isset($_SESSION['member_id'])) {
+  //   echo json_encode(['success' => false, 'msg' => '尚未登入'], JSON_UNESCAPED_UNICODE);
+  //   exit;
+  // }
+
+  // $memberId = (int)$_SESSION['member_id'];
 
   try {
     // 查詢會員基本資料 (不包含興趣)
