@@ -4,6 +4,15 @@
   require_once __DIR__ . '/../config/cors.php';
   require_once __DIR__ . '/../config/db.php';
   header('Content-Type: application/json; charset=utf-8');
+
+  // 設定 session cookie 參數
+  session_set_cookie_params([
+    'httponly' => true,
+    'secure' => isset($_SERVER['HTTPS']), // 本地可用 HTTP，上線自動用 HTTPS
+    'samesite' => 'Strict'
+  ]);
+  session_start();
+
   $db = db();
 
   // 只允許 GET
@@ -14,57 +23,61 @@
   }
 
   // 會員 ID
-  $memberId = $_GET['id'] ?? null;
-  if (!$memberId) {
-    http_response_code(400);
-    echo json_encode(["error" => "缺少會員 ID"], JSON_UNESCAPED_UNICODE);
+  if (!isset($_SESSION['member_id'])) {
+    echo json_encode(['success' => false, 'msg' => '尚未登入'], JSON_UNESCAPED_UNICODE);
     exit;
   }
 
-  // $memberId = 1; // 測試
+  $memberId = (int)$_SESSION['member_id'];
 
   try {
+    // 查詢會員基本資料 (不包含興趣)
     $sql = "SELECT 
             m.MEMBER_AVATAR AS avatar, 
             m.MEMBER_NAME AS name, 
             m.MEMBER_NICKNAME AS nickname, 
             m.MEMBER_GENDER AS gender, 
             m.MEMBER_BIRTHDATE AS birthdate, 
-            m.MEMBER_CITY AS city, 
-            m.MEMBER_OCCUPATION AS occupation, 
-            GROUP_CONCAT(i.INTEREST_NO) AS interests
+            m.MEMBER_CITY AS cityNo, 
+            m.MEMBER_OCCUPATION AS occupationNo
           FROM member m 
-          LEFT JOIN member_interest i
-            ON m.MEMBER_ID = i.MEMBER_ID
-          WHERE m.MEMBER_ID = ?
-          GROUP BY m.MEMBER_ID";
+          WHERE m.MEMBER_ID = ?";
     $stmt = $db->prepare($sql);
     $stmt->bind_param("i", $memberId);
     $stmt->execute();
+    $result = $stmt->get_result();
+    $data = $result->fetch_assoc();
 
-    $stmt->bind_result($avatar, $name, $nickname, $gender, $birthdate, $city, $occupation, $interests);
-
-    if ($stmt->fetch()) {
-      $data = [
-        "avatar" => $avatar,
-        "name" => $name,
-        "nickname" => $nickname,
-        "gender" => $gender,
-        "birthdate" => $birthdate,
-        "city" => $city,
-        "occupation" => $occupation,
-        "interests" => $interests ? explode(",", $interests) : []
-      ];
+    if ($data) {
+      // 查詢該會員的興趣，並組合成物件陣列
+      $sql_interests = "SELECT 
+                          i.INTEREST_NO AS id, 
+                          cat.CATEGORY_NAME AS name 
+                        FROM member_interest i
+                        JOIN category cat ON i.INTEREST_NO = cat.CATEGORY_NO
+                        WHERE i.MEMBER_ID = ?";
+      $stmt_interests = $db->prepare($sql_interests);
+      $stmt_interests->bind_param("i", $memberId);
+      $stmt_interests->execute();
+      $result_interests = $stmt_interests->get_result();
+      
+      $interests_array = [];
+      while ($row = $result_interests->fetch_assoc()) {
+        // 確保 id 是數字
+        $row['id'] = (int)$row['id'];
+        $interests_array[] = $row;
+      }
+      $data["interests"] = $interests_array; // 將興趣陣列加入
+      
       echo json_encode([
         "success" => true,
         "data" => $data
       ], JSON_UNESCAPED_UNICODE);
+
     } else {
       echo json_encode([
         "success" => false,
-        "errors" => [
-          "member" => "找不到會員資料"
-        ]
+        "errors" => ["member" => "找不到會員資料"]
       ], JSON_UNESCAPED_UNICODE);
     }
 

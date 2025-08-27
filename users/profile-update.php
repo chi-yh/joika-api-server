@@ -8,10 +8,10 @@
   // 設定 session cookie 參數
   session_set_cookie_params([
     'httponly' => true,
-    'secure' => true,      // 如果網站是 HTTPS
+    'secure' => isset($_SERVER['HTTPS']), // 如果網站是 HTTPS
     'samesite' => 'Strict' // 避免跨站請求偽造
   ]);
-  session_start();         // 啟動session
+  session_start(); // 啟動session
 
   $db = db();
 
@@ -22,13 +22,16 @@
       exit;
   }
 
-  // 取得會員 ID
-  $memberId = $_POST["member_id"] ?? null;
-  if (!$memberId || !is_numeric($memberId)) {
-    http_response_code(400);
-    echo json_encode(["error" => "缺少會員 ID"], JSON_UNESCAPED_UNICODE);
+  // 登入檢查
+  if (!isset($_SESSION['member_id'])) {
+    echo json_encode([
+      'success' => false, 
+      'msg' => '尚未登入'
+    ], JSON_UNESCAPED_UNICODE);
     exit;
   }
+
+  $memberId = (int)$_SESSION['member_id'];
 
   // 檢查會員是否存在
   $sql = "SELECT MEMBER_ID FROM member WHERE MEMBER_ID = ?";
@@ -38,19 +41,26 @@
   $stmt->store_result();
   if ($stmt->num_rows === 0) {
     http_response_code(404);
-    echo json_encode(["error" => "會員不存在"], JSON_UNESCAPED_UNICODE);
+    echo json_encode([
+      "success" => false,
+      "errors" => ["member" => "會員不存在"]
+    ], JSON_UNESCAPED_UNICODE);
     exit;
   }
+  $stmt->close();
 
   // 更新欄位
-  $memberName = $_POST["name"] ?? null;
-  $memberNickname = $_POST["nickname"] ?? null;
-  $memberGender = $_POST["gender"] ?? "N";
-  $memberBirthdate = $_POST["birthdate"] ?? null;
-  $memberCity = $_POST["location"] ?? null;
+  $memberName       = $_POST["name"] ?? null;
+  $memberNickname   = $_POST["nickname"] ?? null;
+  $memberGender     = $_POST["gender"] ?? "N";
+  $memberBirthdate  = $_POST["birthdate"] ?? null;
+  $memberCity       = $_POST["location"] ?? null;
   $memberOccupation = $_POST["occupation"] ?? null;
-  $memberInterests = $_POST["interests"] ?? [];
+  $memberInterests  = $_POST["interests"] ?? [];
+  
   if (!is_array($memberInterests)) $memberInterests = [$memberInterests]; // 只有一個興趣時也轉成陣列
+  
+  $errors = [];
 
   // 驗證姓名
   if (empty($memberName)) {
@@ -69,6 +79,12 @@
   }
 
   // 驗證性別
+  $validGenders = ["M", "F", "O", "N"];
+  if (!in_array($memberGender, $validGenders)) {
+    $errors["gender"] = "無效的性別選項";
+  }
+
+  // 驗證生日
   if (empty($memberBirthdate)) {
     $errors["birthdate"] = "請選擇生日";
   } else {
@@ -102,6 +118,7 @@
     $stmt->store_result();
 
     if ($stmt->num_rows === 0) $errors["city"] = "無效的選項";
+    $stmt->close();
   }
 
   // 驗證職業
@@ -116,6 +133,7 @@
     $stmt->store_result();
 
     if ($stmt->num_rows === 0) $errors["occupation"] = "無效的選項";
+    $stmt->close();
   }
 
   // 驗證興趣
@@ -141,6 +159,7 @@
         $errors["interests"] = "包含無效的選項";
         break;
       }
+      $stmt->close();
     }
   }
 
@@ -156,6 +175,8 @@
 
   try {
     $db->begin_transaction();
+    $uploadDir = __DIR__ . "/../upload/member/";
+    if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
 
     // 處理 avatar
     $avatarPath = "";
@@ -163,67 +184,80 @@
     // 限制上傳的圖片檔案大小及檔案格式
     $maxFileSize = 5 * 1024 * 1024; // 5MB
 
-    if (!empty($_FILES["avatar"]) && $_FILES["avatar"]["error"] === 0) {
+    if (isset($_FILES["avatar"]) && is_uploaded_file($_FILES["avatar"]["tmp_name"]) && $_FILES["avatar"]["error"] === 0) {
+      // 刪除原本的 avatar
+      $oldAvatar = "";
+      $sql = "SELECT MEMBER_AVATAR FROM member WHERE MEMBER_ID = ?";
+      $stmt = $db->prepare($sql);
+      $stmt->bind_param("i", $memberId);
+      $stmt->execute();
+      $stmt->bind_result($oldAvatar);
+      $stmt->fetch();
+      $stmt->close();
 
+      if (!empty($oldAvatar)) {
+        $oldFile = $uploadDir . $oldAvatar;
+        if (file_exists($oldFile)) {
+          unlink($oldFile); // 刪除舊檔案
+        }
+      }
+
+      // 檔案大小限制
       if ($_FILES["avatar"]["size"] > $maxFileSize) {
-        http_response_code(400);
-        echo json_encode([
-          "error" => "檔案太大，最大限制為 5MB"
-        ]);
-        exit;
+        throw new Exception("檔案太大，最大限制為 5MB");
       }
 
+      // 檔案格式限制
       $allowedTypes = ["image/jpeg", "image/png", "image/gif"];
-      if (!in_array($_FILES["avatar"]["type"], $allowedTypes)) {
-        http_response_code(400);
-        echo json_encode([
-          "error" => "僅允許 JPEG/PNG/GIF 檔案"
-        ]);
-        exit;
-      }
+        if (!in_array($_FILES["avatar"]["type"], $allowedTypes)) {
+          http_response_code(400);
+          echo json_encode([
+            "error" => "僅允許 JPEG/PNG/GIF 檔案"
+          ]);
+          exit;
+        }
 
       $ext = strtolower(pathinfo($_FILES["avatar"]["name"], PATHINFO_EXTENSION)); // 副檔名
       $randomStr = bin2hex(random_bytes(4)); // 產生新檔名 (隨機字串 + 副檔名)
       $saveName = date("Ymd_His") . "_" . $randomStr . "." . $ext;
-      $uploadDir = __DIR__ . "/uploads/avatar/";
-      if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0755, true);
-      }
 
       // 最後要儲存的完整路徑
       $targetFile = $uploadDir . $saveName;
 
-      if (move_uploaded_file($_FILES["avatar"]["tmp_name"], $targetFile)) {
-        $avatarPath = $saveName; // 只存檔名
+      if (!move_uploaded_file($_FILES["avatar"]["tmp_name"], $targetFile)) {
+        throw new Exception("檔案上傳失敗");
       }
+      $avatarPath = $saveName; // 只存檔名
     }
 
-    $sql = "UPDATE member 
-            SET MEMBER_NAME=?, 
-                MEMBER_NICKNAME=?, 
-                MEMBER_GENDER=?, 
-                MEMBER_BIRTHDATE=?, 
-                MEMBER_CITY=?, 
-                MEMBER_OCCUPATION=? " . ($avatarPath ? ", MEMBER_AVATAR=? " : "") .
-           "WHERE MEMBER_ID=?";
-
+    // 更新會員資料
     if ($avatarPath) {
-        $stmt = $db->prepare($sql);
-        $stmt->bind_param("ssssissi", $memberName, $memberNickname, $memberGender, $memberBirthdate,
-                          $memberCity, $memberOccupation, $avatarPath, $memberId);
+      $sql = "UPDATE member 
+              SET MEMBER_NAME=?, MEMBER_NICKNAME=?, MEMBER_GENDER=?, MEMBER_BIRTHDATE=?, 
+                  MEMBER_CITY=?, MEMBER_OCCUPATION=?, MEMBER_AVATAR=? 
+              WHERE MEMBER_ID=?";
+      $stmt = $db->prepare($sql);
+      $stmt->bind_param("ssssissi", $memberName, $memberNickname, $memberGender, $memberBirthdate,
+                        $memberCity, $memberOccupation, $avatarPath, $memberId);
     } else {
-        $stmt = $db->prepare($sql);
-        $stmt->bind_param("ssssisi", $memberName, $memberNickname, $memberGender, $memberBirthdate,
-                          $memberCity, $memberOccupation, $memberId);
+      $sql = "UPDATE member 
+              SET MEMBER_NAME=?, MEMBER_NICKNAME=?, MEMBER_GENDER=?, MEMBER_BIRTHDATE=?, 
+                  MEMBER_CITY=?, MEMBER_OCCUPATION=? 
+              WHERE MEMBER_ID=?";
+      $stmt = $db->prepare($sql);
+      $stmt->bind_param("ssssisi", $memberName, $memberNickname, $memberGender, $memberBirthdate,
+                        $memberCity, $memberOccupation, $memberId);
     }
 
     if (!$stmt->execute()) throw new Exception("更新會員資料失敗");
+    $stmt->close();
 
     // 更新興趣：先刪除再新增
-    $sql = "DELETE FROM member_interest WHERE MEMBER_ID=?";
+    $sql = "DELETE FROM member_interest WHERE MEMBER_ID = ?";
     $stmt = $db->prepare($sql);
     $stmt->bind_param("i", $memberId);
     $stmt->execute();
+    $stmt->close();
 
     if (!empty($memberInterests)) {
       $sql = "INSERT INTO member_interest (MEMBER_ID, INTEREST_NO) VALUES (?, ?)";
@@ -248,6 +282,9 @@
 
     error_log("Update error: " . $e->getMessage());
     http_response_code(500);
-    echo json_encode(["success" => false, "error" => "更新失敗，請稍後再試"], JSON_UNESCAPED_UNICODE);
+    echo json_encode([
+      "success" => false, 
+      "error" => ["server" => $e->getMessage()]
+    ], JSON_UNESCAPED_UNICODE);
   }
 ?>

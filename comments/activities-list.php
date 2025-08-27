@@ -36,6 +36,7 @@ if ($activityno > 0) {
         pac.ACTIVITY_COMMENT_NO,
         pac.MEMBER_ID,
         m.MEMBER_NICKNAME,
+                m.MEMBER_AVATAR,   
         pac.ACTIVITY_NO,
         pac.COMMENT_CONTENT,
         pac.PARENT_NO,
@@ -54,12 +55,14 @@ if ($activityno > 0) {
     
     $stmt->execute();
 $stmt->store_result();
-$stmt->bind_result($comment_no, $member_id, $member_nickname, $activity_no, $comment_content, $parent_no, $created_at, $comment_status);
+$stmt->bind_result($comment_no, $member_id, $member_nickname,$member_avatar, $activity_no, $comment_content, $parent_no, $created_at, $comment_status);
 while ($stmt->fetch()) {
     $comments[] = [
         'ACTIVITY_COMMENT_NO' => $comment_no,
         'MEMBER_ID' => $member_id,
         'MEMBER_NICKNAME' => $member_nickname,
+        'MEMBER_AVATAR' => $member_avatar, // ← 新增這行
+
         'ACTIVITY_NO' => $activity_no,
         'COMMENT_CONTENT' => $comment_content,
         'PARENT_NO' => $parent_no,
