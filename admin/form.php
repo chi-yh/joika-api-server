@@ -4,25 +4,31 @@
     require_once __DIR__ . '/../config/db.php';
     if ($_SERVER["REQUEST_METHOD"] == "GET"){
 
-    $db = db();
+        $db = db();
 
-    $sql = "SELECT 
-                f.*,
-                m.MEMBER_NAME AS NAME,
-                s.STAFF_NAME AS PROCESSED_NAME
-            FROM support_form f
-            LEFT JOIN MEMBER m
-                ON f.MEMBER_ID = m.MEMBER_ID
-            LEFT JOIN staff s
-                ON f.PROCESSED_BY = s.STAFF_ID
-            ORDER BY f.FORM_ID ASC;";
-    $result = $db->query($sql);
+        $sql = "SELECT 
+                    f.*,
+                    m.MEMBER_NAME AS NAME,
+                    s.STAFF_NAME AS PROCESSED_NAME
+                FROM support_form f
+                LEFT JOIN member m
+                    ON f.MEMBER_ID = m.MEMBER_ID
+                LEFT JOIN staff s
+                    ON f.PROCESSED_BY = s.STAFF_ID
+                ORDER BY f.FORM_ID ASC;";
 
-    $data = $result->fetch_all(MYSQLI_ASSOC);
-    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+        $result = $db->query($sql);
 
-    $db->close();
-    exit();
+        if (!$result) {
+            http_response_code(500);
+            die(json_encode(["error" => $db->error], JSON_UNESCAPED_UNICODE));
+        }
+
+        $data = $result->fetch_all(MYSQLI_ASSOC);
+        echo json_encode($data, JSON_UNESCAPED_UNICODE);
+
+        $db->close();
+        exit();
     }
     
     http_response_code(403);
