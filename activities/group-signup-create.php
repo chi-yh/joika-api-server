@@ -1,13 +1,23 @@
 <?php
-// === group-signup-create.php (最終穩健版) ===
+// === group-signup-create.php (最終完整版，支援重新報名) ===
+
+// 啟用 mysqli 的錯誤報告模式，讓它拋出異常
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 
-// --- 固定標頭 ---
+// --- CORS 標頭 ---
+require_once __DIR__ . '/../config/cors.php';
+// require_once __DIR__ . '/../config/db.php';
+header('Content-Type: application/json; charset=utf-8');
+
 // header('Content-Type: application/json; charset=utf-8');
 // header("Access-Control-Allow-Origin: *");
-// header("Access-Control-Allow-Headers: Content-Type");
+// header("Access-Control-Allow-Headers: Content-Type, Access-Control-Allow-Headers, Authorization, X-Requested-With");
 // header("Access-Control-Allow-Methods: POST, OPTIONS");
-// if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') { exit; }
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') {
+  http_response_code(200);
+  exit;
+}
+
 
 require_once __DIR__ . '/../config/db.php';
 $db = db();
@@ -37,36 +47,42 @@ if (empty($activityNo) || $memberId <= 0) {
 
 // === 使用 try...catch 區塊來執行資料庫操作 ===
 try {
-    $activityNoEscaped = $db->real_escape_string($activityNo);
-    $sql = "INSERT INTO PARTICIPANT (ACTIVITY_NO, PARTICIPANT_ID, CREATED_AT) VALUES ('{$activityNoEscaped}', {$memberId}, NOW())";
-    
-    // 嘗試執行查詢
-    $db->query($sql);
+    // 第一次嘗試：直接新增紀錄
+    $sql_insert = "INSERT INTO PARTICIPANT (ACTIVITY_NO, PARTICIPANT_ID, JOINER_STATUS, CREATED_AT) VALUES (?, ?, '審核中', NOW())";
+    $stmt_insert = $db->prepare($sql_insert);
+    $stmt_insert->bind_param("si", $activityNo, $memberId);
+    $stmt_insert->execute();
+    $stmt_insert->close();
 
-    // 如果上面一行沒有拋出異常，就代表成功了
-    echo json_encode(["success" => true, "message" => "報名成功"]);
+    echo json_encode(["success" => true, "message" => "報名成功，待主揪審核"]);
 
 } catch (mysqli_sql_exception $e) {
-    // === 關鍵修正：在這裡捕捉資料庫異常 ===
-    
     // 檢查異常的錯誤碼是否為 1062 (重複鍵)
     if ($e->getCode() === 1062) {
-        // 如果是，回傳我們預期的、對使用者友善的 JSON 錯誤訊息
-        http_response_code(409); // 409 Conflict 是一個更適合的狀態碼
-        echo json_encode([
-            "success" => false,
-            "error" => "您已經報名過此活動，請勿重複報名"
-        ]);
+        try {
+            // 第二次嘗試：更新「已取消」的紀錄
+            $sql_update = "UPDATE PARTICIPANT SET JOINER_STATUS = '審核中', CREATED_AT = NOW() WHERE ACTIVITY_NO = ? AND PARTICIPANT_ID = ? AND JOINER_STATUS = '已取消'";
+            $stmt_update = $db->prepare($sql_update);
+            $stmt_update->bind_param("si", $activityNo, $memberId);
+            $stmt_update->execute();
+
+            if ($stmt_update->affected_rows > 0) {
+                echo json_encode(["success" => true, "message" => "重新報名成功，待主揪審核"]);
+            } else {
+                http_response_code(409);
+                echo json_encode(["success" => false, "error" => "您已經報名過此活動，請勿重複報名"]);
+            }
+            $stmt_update->close();
+
+        } catch (mysqli_sql_exception $update_e) {
+            http_response_code(500);
+            echo json_encode(["success" => false, "error" => "資料庫操作失敗: " . $update_e->getMessage()]);
+        }
     } else {
-        // 如果是其他資料庫錯誤
         http_response_code(500);
-        echo json_encode([
-            "success" => false,
-            "error" => "資料庫操作失敗: " . $e->getMessage()
-        ]);
+        echo json_encode(["success" => false, "error" => "資料庫操作失敗: " . $e->getMessage()]);
     }
 } finally {
-    // 無論成功或失敗，最後都關閉連線
     if ($db) {
         $db->close();
     }
