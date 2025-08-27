@@ -47,7 +47,7 @@ $mysqli->begin_transaction();
 try {
   // 1) 查並鎖定活動（避免競態）
   $sql1 = "SELECT ACTIVITY_NO, HOST_MEMBER_ID, ACTIVITY_STATUS, ACTIVITY_END_DATE
-           FROM ACTIVITY
+           FROM activity
            WHERE ACTIVITY_NO = ? FOR UPDATE";
   $stmt1 = $mysqli->prepare($sql1);
   if (!$stmt1) throw new Exception('SQL1_PREPARE_FAILED: '.$mysqli->error);
@@ -98,7 +98,7 @@ $sql3 = "INSERT INTO notification
           NOW(),
           '未讀'
          FROM PARTICIPANT p
-         JOIN ACTIVITY a ON a.ACTIVITY_NO = p.ACTIVITY_NO
+         JOIN activity a ON a.ACTIVITY_NO = p.ACTIVITY_NO
          WHERE p.ACTIVITY_NO = ?";
   $stmt3 = $mysqli->prepare($sql3);
   if (!$stmt3) throw new Exception('SQL3_PREPARE_FAILED: '.$mysqli->error);
