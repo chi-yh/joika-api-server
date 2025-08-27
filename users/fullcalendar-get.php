@@ -1,30 +1,30 @@
 <?php
 // /calendar/my-events.php
-declare(strict_types=1);
-
 require_once __DIR__ . '/../config/db.php';
 
 header('Content-Type: application/json; charset=utf-8');
 @date_default_timezone_set('Asia/Taipei');
-
 session_start();
 
+function out_json($status, $payload) {
+    http_response_code($status);
+    echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-    http_response_code(405);
-    echo json_encode(['error' => 'Method Not Allowed'], JSON_UNESCAPED_UNICODE);
-    exit;
+    out_json(405, ['error' => 'Method Not Allowed']);
 }
 
-$memberId = $_SESSION['member_id'] ?? null;
+// memberId（避免 ??）
+$memberId = isset($_SESSION['member_id']) ? (int)$_SESSION['member_id'] : 0;
 if (!$memberId) {
-    http_response_code(401);
-    echo json_encode(['error' => '尚未登入'], JSON_UNESCAPED_UNICODE);
-    exit;
+    out_json(401, ['error' => '尚未登入']);
 }
 
-$startStr = $_GET['start'] ?? null;
-$endStr   = $_GET['end']   ?? null;
-
+// 查詢區間
+$startStr = isset($_GET['start']) ? $_GET['start'] : null;
+$endStr   = isset($_GET['end'])   ? $_GET['end']   : null;
 
 if (!$startStr || !$endStr) {
     $startDt = new DateTime('first day of this month 00:00:00');
@@ -33,31 +33,26 @@ if (!$startStr || !$endStr) {
     try {
         $startDt = new DateTime($startStr);
         $endDt   = new DateTime($endStr);
-    } catch (Throwable $e) {
-        http_response_code(400);
-        echo json_encode(['error'=>'Invalid date range'], JSON_UNESCAPED_UNICODE);
-        exit;
+    } catch (Exception $e) {
+        out_json(400, ['error'=>'Invalid date range', 'debug'=>$e->getMessage()]);
     }
 }
 
 $rangeStart = $startDt->format('Y-m-d H:i:s');
 $rangeEnd   = $endDt->format('Y-m-d H:i:s');
 
-// 連線
+// DB
 $mysqli = db();
 if ($mysqli->connect_errno) {
-    http_response_code(500);
-    echo json_encode(['error' => 'DB connect error'], JSON_UNESCAPED_UNICODE);
-    exit;
+    out_json(500, ['error' => 'DB connect error', 'debug' => $mysqli->connect_error]);
 }
+if (function_exists('mysqli_set_charset')) { @mysqli_set_charset($mysqli, 'utf8mb4'); }
 
 /**
- * 期間重疊條件：
+ * 期間重疊：
  *   活動開始 < 查詢結束 AND (活動結束 IS NULL OR 活動結束 > 查詢開始)
- *
  * 去重策略：
- *   先選「我是主揪」；再選「我參與但不是我主揪」(NOT IN 主揪清單)
- *   這樣同一活動不會重複出現在結果
+ *   先選「我是主揪」；再選「我參與但不是我主揪」
  */
 $sql = "
     SELECT 
@@ -67,8 +62,8 @@ $sql = "
         COALESCE(a.ACTIVITY_END_DATE, DATE_ADD(a.ACTIVITY_START_DATE, INTERVAL 2 HOUR)) AS end_dt,
         a.ACTIVITY_STATUS AS status,
         'host' AS role
-    FROM ACTIVITY a
-    JOIN CATEGORY c ON a.CATEGORY_NO = c.CATEGORY_NO
+    FROM `activity` a
+    JOIN `category` c ON a.CATEGORY_NO = c.CATEGORY_NO
     WHERE a.HOST_MEMBER_ID = ?
         AND a.ACTIVITY_START_DATE < ?
         AND (a.ACTIVITY_END_DATE IS NULL OR a.ACTIVITY_END_DATE > ?)
@@ -83,9 +78,9 @@ $sql = "
         COALESCE(a.ACTIVITY_END_DATE, DATE_ADD(a.ACTIVITY_START_DATE, INTERVAL 2 HOUR)) AS end_dt,
         a.ACTIVITY_STATUS AS status,
         'participant' AS role
-    FROM ACTIVITY a
-    JOIN PARTICIPANT p ON a.ACTIVITY_NO = p.ACTIVITY_NO
-    JOIN CATEGORY c ON a.CATEGORY_NO = c.CATEGORY_NO
+    FROM `activity` a
+    JOIN `participant` p ON a.ACTIVITY_NO = p.ACTIVITY_NO
+    JOIN `category` c ON a.CATEGORY_NO = c.CATEGORY_NO
     WHERE p.PARTICIPANT_ID = ?
         AND a.HOST_MEMBER_ID <> ?
         AND a.ACTIVITY_START_DATE < ?
@@ -96,56 +91,57 @@ $sql = "
 
 $stmt = $mysqli->prepare($sql);
 if (!$stmt) {
-    http_response_code(500);
-    echo json_encode(['error' => 'DB prepare error'], JSON_UNESCAPED_UNICODE);
-    exit;
+    out_json(500, ['error' => 'DB prepare error', 'debug' => $mysqli->error]);
 }
 
-$stmt->bind_param(
-    'issiiss',
-    $memberId,        // 我主揪
+$memberIdInt = (int)$memberId;
+if (!$stmt->bind_param('issiiss',
+    $memberIdInt,
     $rangeEnd,
     $rangeStart,
-    $memberId,        // 我參與
-    $memberId,        // 但不是我主揪
+    $memberIdInt,
+    $memberIdInt,
     $rangeEnd,
     $rangeStart
-);
+)) {
+    out_json(500, ['error' => 'DB bind_param error', 'debug' => $stmt->error]);
+}
 
 if (!$stmt->execute()) {
-    http_response_code(500);
-    echo json_encode(['error' => 'DB execute error'], JSON_UNESCAPED_UNICODE);
-    exit;
+    out_json(500, ['error' => 'DB execute error', 'debug' => $stmt->error]);
 }
 
-$res = $stmt->get_result();
-$events = [];
+if (!$stmt->bind_result($id, $title, $start_dt, $end_dt, $status, $role)) {
+    out_json(500, ['error' => 'DB bind_result error', 'debug' => $stmt->error]);
+}
 
-function colorByStatus(string $status): string {
-    $statusMap = [
+function colorByStatus($status) {
+    $statusMap = array(
         '開團中' => '#4db2e1',
         '已成團' => '#60c18e',
-        '已完成' => '#aaaaaa', 
-    ];
-    return $statusMap[$status] ?? '#81BFDA';
+        '已完成' => '#aaaaaa',
+    );
+    return isset($statusMap[$status]) ? $statusMap[$status] : '#81BFDA';
 }
 
-while ($row = $res->fetch_assoc()) {
-    $startIso = (new DateTime($row['start_dt']))->format(DateTime::ATOM);
-    $endIso   = $row['end_dt'] ? (new DateTime($row['end_dt']))->format(DateTime::ATOM) : null;
+$events = array();
+while ($stmt->fetch()) {
+    $startIso = (new DateTime($start_dt))->format(DateTime::ATOM);
+    $endIso   = $end_dt ? (new DateTime($end_dt))->format(DateTime::ATOM) : null;
 
-    $events[] = [
-    'id'     => (int)$row['id'],
-    'title'  => $row['title'],
-    'start'  => $startIso,
-    'end'    => $endIso,
-    'allDay' => false,
-    'color'  => colorByStatus($row['status']), 
-    'extendedProps' => [
-        'status' => $row['status'],
-    ],
-];
+    $events[] = array(
+        'id'     => (int)$id,
+        'title'  => $title,
+        'start'  => $startIso,
+        'end'    => $endIso,
+        'allDay' => false,
+        'color'  => colorByStatus($status),
+        'extendedProps' => array(
+            'status' => $status,
+            'role'   => $role,
+        ),
+    );
 }
 
-// 回傳「純事件陣列」
-echo json_encode($events, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+$stmt->close();
+out_json(200, $events);
