@@ -1,5 +1,5 @@
 <?php
-// ===get-user-participations.php API: 整合版本 ===
+// === API: 整合版本 (兼容無 mysqlnd + 識別主揪) ===
 
 header('Content-Type: application/json; charset=utf-8');
 header("Access-Control-Allow-Origin: *");
@@ -13,8 +13,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "GET") {
     exit;
 }
 
-// --- 透過 "action" 參數來決定要做哪件事 ---
-$action = trim($_GET['action'] ?? 'get_participations'); // 預設行為是獲取已參加列表
+$action = trim($_GET['action'] ?? 'get_participations');
 $memberId = isset($_GET['memberId']) ? (int)$_GET['memberId'] : 0;
 
 if ($memberId <= 0) {
@@ -23,8 +22,7 @@ if ($memberId <= 0) {
     exit;
 }
 
-
-// === 流程一：檢查單一活動是否已收藏 ===
+// === 流程一：檢查收藏 (使用 bind_result) ===
 if ($action === 'check_favorite') {
     $activityNo = trim($_GET['activityNo'] ?? '');
     if (empty($activityNo)) {
@@ -33,38 +31,52 @@ if ($action === 'check_favorite') {
         exit;
     }
 
-    // ⚠️ 請將 favorite_activities, activity_no, member_id 替換為您的真實名稱
     $sql = "SELECT COUNT(*) FROM favorite_activities WHERE activity_no = ? AND member_id = ?";
     $stmt = $db->prepare($sql);
     $stmt->bind_param("si", $activityNo, $memberId);
     $stmt->execute();
     
-    // 【修改點 1】: 使用 bind_result 和 fetch 來獲取單一結果
-    $stmt->bind_result($count); // 準備一個變數 $count 來接收 COUNT(*) 的結果
-    $stmt->fetch(); // 執行抓取，將結果填入 $count
+    $stmt->bind_result($count);
+    $stmt->fetch();
     
     echo json_encode(["isFavorite" => (int)$count > 0]);
+    $stmt->close();
 
-// === 流程二：獲取所有已參加的活動列表 (預設行為) ===
+// === 流程二：獲取所有相關活動 (已升級 + 使用 bind_result) ===
 } else {
-    // ⚠️ 請將 PARTICIPANT, ACTIVITY_NO, PARTICIPANT_ID 替換為您的真實名稱
-    $sql = "SELECT ACTIVITY_NO FROM PARTICIPANT WHERE PARTICIPANT_ID = ?";
-    $stmt = $db->prepare($sql);
-    $stmt->bind_param("i", $memberId);
-    $stmt->execute();
-    
-    // 【修改點 2】: 使用 bind_result 和 while 迴圈來獲取多筆結果
-    $stmt->store_result(); // 先將所有結果儲存到記憶體
-    $stmt->bind_result($activity_no); // 準備一個變數 $activity_no 來接收 ACTIVITY_NO 的值
-
     $activityNos = [];
-    while ($stmt->fetch()) { // 迴圈一筆一筆地抓取
-        $activityNos[] = $activity_no; // 將抓到的值放入陣列
-    }
+
+    // --- 查詢一：找出使用者「參加」的活動 ---
+    $sql_joined = "SELECT ACTIVITY_NO FROM PARTICIPANT WHERE PARTICIPANT_ID = ?";
+    $stmt_joined = $db->prepare($sql_joined);
+    $stmt_joined->bind_param("i", $memberId);
+    $stmt_joined->execute();
     
-    echo json_encode($activityNos);
+    $stmt_joined->store_result();
+    $stmt_joined->bind_result($activity_no_joined);
+
+    while ($stmt_joined->fetch()) {
+        $activityNos[] = $activity_no_joined;
+    }
+    $stmt_joined->close();
+
+    // --- 查詢二：找出使用者「主辦」的活動 ---
+    $sql_hosted = "SELECT ACTIVITY_NO FROM ACTIVITY WHERE HOST_MEMBER_ID = ?";
+    $stmt_hosted = $db->prepare($sql_hosted);
+    $stmt_hosted->bind_param("i", $memberId);
+    $stmt_hosted->execute();
+
+    $stmt_hosted->store_result();
+    $stmt_hosted->bind_result($activity_no_hosted);
+
+    while ($stmt_hosted->fetch()) {
+        $activityNos[] = $activity_no_hosted;
+    }
+    $stmt_hosted->close();
+
+    // --- 將合併後的陣列，移除重複項並回傳 ---
+    echo json_encode(array_values(array_unique($activityNos)));
 }
 
-$stmt->close();
 $db->close();
 ?>
