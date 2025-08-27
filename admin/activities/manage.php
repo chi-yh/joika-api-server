@@ -9,7 +9,7 @@
     $sql = "SELECT a.*, m.MEMBER_NAME AS HOST_NAME
             FROM activity a
             LEFT JOIN member m
-            ON a.STAFF_ID = m.MEMBER_ID";
+            ON a.HOST_MEMBER_ID = m.MEMBER_ID";
     $result = $db->query($sql);
 
     $data = $result->fetch_all(MYSQLI_ASSOC);
