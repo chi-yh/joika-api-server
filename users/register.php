@@ -8,10 +8,10 @@
   // 設定 session cookie 參數
   session_set_cookie_params([
     'httponly' => true,
-    'secure' => true,      // 如果網站是 HTTPS
-    'samesite' => 'Strict' // 避免跨站請求偽造
+    'secure' => isset($_SERVER['HTTPS']), // 確保在HTTP和HTTPS環境下都能正常使用session
+    'samesite' => 'Strict'                // 避免跨站請求偽造
   ]);
-  session_start();         // 啟動session
+  session_start();                        // 啟動session
 
   $db = db();
 
@@ -69,7 +69,7 @@
       exit;
     } elseif ((strlen($memberPassword) < 6 || strlen($memberPassword) > 12)) {
       http_response_code(400);
-      echo json_encode(["error" => "密碼長度需介於 6 ~ 12 字元"]);
+      echo json_encode(["error" => "密碼長度需介於 6 ~ 12 字元"], JSON_UNESCAPED_UNICODE);
     }
   
     try {
@@ -117,13 +117,13 @@
       "password" => $hashedPassword
     ];
 
-    echo json_encode(["success" => true, "tmp_id" => $tmpId]);
+    echo json_encode(["success" => true, "tmp_id" => $tmpId], JSON_UNESCAPED_UNICODE);
     exit;
 
   } elseif ($step == 2) {
     // 第二步 驗證基本資料並完成註冊
-    error_log("POST data: " . print_r($_POST, true));
-    error_log("FILES data: " . print_r($_FILES, true));
+    // error_log("POST data: " . print_r($_POST, true)); // 診斷用，可以保留或註解掉
+    // error_log("FILES data: " . print_r($_FILES, true)); // 診斷用，可以保留或註解掉
 
     // 檢查 session
     $tmpId = $_POST["tmp_id"] ?? null;
@@ -143,7 +143,7 @@
     $hashedPassword = $_SESSION["step1"]["password"];
 
     // 第二步要填寫的資料
-    $tmpId = $_POST["tmp_id"] ?? null;
+    // $tmpId = $_POST["tmp_id"] ?? null; // 已檢查過，可註解
     $memberName = $_POST["name"] ?? null;
     $memberNickname = $_POST["nickname"] ?? null;
     $memberGender = $_POST["gender"] ?? "N";
@@ -172,6 +172,12 @@
     }
 
     // 驗證性別
+    $validGenders = ["M", "F", "O", "N"];
+    if (!in_array($memberGender, $validGenders)) {
+      $errors["gender"] = "無效的性別選項";
+    }
+
+    // 驗證生日
     if (empty($memberBirthdate)) {
       $errors["birthdate"] = "請選擇生日";
     } else {
@@ -205,6 +211,7 @@
       $stmt->store_result();
 
       if ($stmt->num_rows === 0) $errors["city"] = "無效的選項";
+      $stmt->close(); // 關閉 statement
     }
 
     // 驗證職業
@@ -219,6 +226,7 @@
       $stmt->store_result();
 
       if ($stmt->num_rows === 0) $errors["occupation"] = "無效的選項";
+      $stmt->close(); // 關閉 statement
     }
 
     // 驗證興趣
@@ -244,6 +252,7 @@
           $errors["interests"] = "包含無效的選項";
           break;
         }
+        $stmt->close(); // 關閉 statement
       }
     }
 
@@ -260,19 +269,25 @@
     try {
       $db->begin_transaction();
 
+      $uploadDir = __DIR__ . "/../upload/member/"; 
+      if (!is_dir($uploadDir)) {
+          if (!mkdir($uploadDir, 0755, true)) {
+              throw new Exception("無法創建上傳目錄: " . $uploadDir);
+          }
+      }
+
       // 處理 avatar
       $avatarPath = "";
 
       // 限制上傳的圖片檔案大小及檔案格式
       $maxFileSize = 5 * 1024 * 1024; // 5MB
 
-      if (!empty($_FILES["avatar"]) && $_FILES["avatar"]["error"] === 0) {
-
+      if (isset($_FILES["avatar"]) && $_FILES["avatar"]["error"] === 0) {
         if ($_FILES["avatar"]["size"] > $maxFileSize) {
           http_response_code(400);
           echo json_encode([
             "error" => "檔案太大，最大限制為 5MB"
-          ]);
+          ], JSON_UNESCAPED_UNICODE);
           exit;
         }
 
@@ -281,24 +296,25 @@
           http_response_code(400);
           echo json_encode([
             "error" => "僅允許 JPEG/PNG/GIF 檔案"
-          ]);
+          ], JSON_UNESCAPED_UNICODE);
           exit;
         }
 
         $ext = strtolower(pathinfo($_FILES["avatar"]["name"], PATHINFO_EXTENSION)); // 副檔名
         $randomStr = bin2hex(random_bytes(4)); // 產生新檔名 (隨機字串 + 副檔名)
         $saveName = date("Ymd_His") . "_" . $randomStr . "." . $ext;
-        $uploadDir = __DIR__ . "/uploads/avatar/";
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
-        }
-
+        
         // 最後要儲存的完整路徑
         $targetFile = $uploadDir . $saveName;
 
-        if (move_uploaded_file($_FILES["avatar"]["tmp_name"], $targetFile)) {
-          $avatarPath = $saveName; // 只存檔名
+        // move_uploaded_file 失敗時的診斷日誌
+        if (!move_uploaded_file($_FILES["avatar"]["tmp_name"], $targetFile)) {
+          $lastError = error_get_last();
+          $errorMessage = "檔案上傳失敗。可能的錯誤: " . ($lastError ? $lastError['message'] : '未知');
+          error_log("Registration error: " . $errorMessage . " from temp: " . $_FILES["avatar"]["tmp_name"] . " to: " . $targetFile);
+          throw new Exception($errorMessage);
         }
+        $avatarPath = $saveName; // 只存檔名
       }
 
       $sql = "INSERT INTO member (
@@ -331,11 +347,12 @@
         $avatarPath
       );
 
-      if (!$stmt->execute()) throw new Exception("新增會員資料失敗");
+      if (!$stmt->execute()) throw new Exception("新增會員資料失敗: " . $stmt->error);
   
       // 取得此次新增至 member 資料表中所對應到的 member_id
       $memberId = $db->insert_id;
-  
+      $stmt->close(); // 關閉 statement
+
       // 新增會員興趣(代號)至 member_interest 資料表中
       if (!empty($memberInterests)) {
         $sql = "INSERT INTO member_interest (MEMBER_ID, INTEREST_NO) VALUES (?, ?)";
@@ -343,8 +360,9 @@
 
         foreach ($memberInterests as $interestNo) {
           $stmt->bind_param("ii", $memberId, $interestNo);
-          if (!$stmt->execute()) throw new Exception("新增興趣資料失敗");
+          if (!$stmt->execute()) throw new Exception("新增興趣資料失敗: " . $stmt->error);
         }
+        $stmt->close(); // 關閉 statement
       }
 
       $db->commit();
