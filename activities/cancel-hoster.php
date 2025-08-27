@@ -66,7 +66,7 @@ try {
   if ($r_status !== '開團中')                  throw new Exception('NOT_ACTIVE');
 
   // 3) 更新取消
-  $sql2 = "UPDATE ACTIVITY
+  $sql2 = "UPDATE activity
            SET ACTIVITY_STATUS='已取消',
                HOSTER_CANCELLED_AT=NOW(),
                HOSTER_CANCEL_REASON_NO=?,
